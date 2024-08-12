@@ -1,4 +1,4 @@
-###Table 5.3###
+###Table 5.8###
 
 rm(list=ls())
 
@@ -15,8 +15,6 @@ library(paths)
 ##office
 datadir <- "../../data/" 
 logdir <- "../../code/ch5/_LOGS/"
-
-#sink(paste(logdir, "table_5-1_log.txt", sep=""))
 
 ##input data
 load("Brader_et_al2008.RData")
@@ -45,143 +43,109 @@ x <- c("ppage", "female", "hs", "sc", "ba", "ppincimp")
 df <- Brader2
 m12 <- c(m1, m2)
 
-set.seed(02138)
+## linear model estimator w/o exposure-mediator interaction
 
-##########################################
-## RI without interactions
-##########################################
+linmed_m1 <-  linmed(df, d, m1, y, x)
+linmed_m12 <-  linmed(df, d, m12, y, x)
 
-mediators <- list(m1, m2)
+decomp_linmed <- c(ATE = linmed_m1$ATE,
+                   AY = linmed_m12$NDE,
+                   AM2Y = linmed_m1$NDE - linmed_m12$NDE,
+                   AM1Y = linmed_m1$NIE)
 
-formula_m0 <- as.formula(paste(y, "~", paste(c(x, d), collapse = " + ")))
-formula_m1 <- as.formula(paste(y, "~", paste(c(x, d, m1), collapse = " + ")))
-formula_m2 <- as.formula(paste(y, "~", paste(c(x, d, m1, m2), collapse = " + ")))
+## linear model estimator w/ exposure-mediator interactions
 
-# outcome models
-glm_m0 <- glm(formula_m0, data = df)
-glm_m1 <- glm(formula_m1, data = df)
-glm_m2 <- glm(formula_m2, data = df)
-glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
+linmedx_m1 <-  linmedx(df, d, m1, y, x)
+linmedx_m12 <-  linmedx(df, d, m12, y, x)
 
-paths_glm <- paths(a = d, y = y, m = mediators,
-                   glm_ymodels, data = df, nboot = 2000)
+decomp_linmedx <- c(ATE = linmedx_m1$ATE,
+                    AY = linmedx_m12$NDE,
+                    AM2Y = linmedx_m1$NDE - linmedx_m12$NDE,
+                    AM1Y = linmedx_m1$NIE)
 
-pure <- paths_glm$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
+## IPW estimator
+
+ipwmed_m1 <- ipwmed(df, d, m1, y, x)
+ipwmed_m12 <- ipwmed(df, d, m12, y, x)
+
+decomp_ipwmed <- c(ATE = ipwmed_m1$ATE,
+                   AY = ipwmed_m12$NDE,
+                   AM2Y = ipwmed_m1$NDE - ipwmed_m12$NDE,
+                   AM1Y = ipwmed_m1$NIE)
+
+# summary of point estimates
+
+est_m <- list(decomp_linmed, decomp_linmedx, decomp_ipwmed) %>%
+  map(unlist) %>%
+  bind_rows() %>%
+  t() %>% 
+  `colnames<-`( c("^lma", "^lmi", "^ipw"))
+
+## Bootstrap SEs for linmed, linmed, and ipwmed
+
+# setup parallel computing cluster
+ncores <- parallel::detectCores()-1
+my.cluster <- parallel::makeCluster(ncores,type="PSOCK")
+doParallel::registerDoParallel(cl=my.cluster)
+clusterExport(cl=my.cluster, list("linmed", "linmedx", "ipwmed"), envir=environment())
+registerDoRNG(3308004)
+
+nboot <- 2000
+
+m_boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
   
+  boot_data <- Brader2[sample(nrow(Brader2), nrow(Brader2), replace=TRUE),]
   
-hybrid <- paths_glm$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
+  boot_linmed_m1 <- linmed(boot_data, d, m1, y, x)
+  
+  boot_linmedx_m1 <- linmedx(boot_data, d, m1, y, x)
+  
+  boot_ipwmed_m1 <- ipwmed(boot_data, d, m1, y, x)
+  
+  boot_linmed_m12 <- linmed(boot_data, d, m12, y, x)
+  
+  boot_linmedx_m12 <- linmedx(boot_data, d, m12, y, x)
+  
+  boot_ipwmed_m12 <- ipwmed(boot_data, d, m12, y, x)
+  
+  decomp_linmed <- c(ATE = boot_linmed_m1$ATE,
+                     AY = boot_linmed_m12$NDE,
+                     AM2Y = boot_linmed_m1$NDE - boot_linmed_m12$NDE,
+                     AM1Y = boot_linmed_m1$NIE)
+  
+  decomp_linmedx <- c(ATE = boot_linmedx_m1$ATE,
+                      AY = boot_linmedx_m12$NDE,
+                      AM2Y = boot_linmedx_m1$NDE - boot_linmedx_m12$NDE,
+                      AM1Y = boot_linmedx_m1$NIE)
+  
+  decomp_ipwmed <- c(ATE = boot_ipwmed_m1$ATE,
+                     AY = boot_ipwmed_m12$NDE,
+                     AM2Y = boot_ipwmed_m1$NDE - boot_ipwmed_m12$NDE,
+                     AM1Y = boot_ipwmed_m1$NIE)
+  
+  list(decomp_linmed,
+       decomp_linmedx,
+       decomp_ipwmed)
+}
 
-m_out2a <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "n")
+stopCluster(my.cluster)
+rm(my.cluster)
 
+clnms <- expand_grid(method = c("linmed", "linmedx", "ipwmed"), estimand = c("ATE", "AY", "AM2Y", "AM1Y")) %>% unite("") %>% unlist()
 
-##########################################
-## RI with D-M interactions
-##########################################
+m_boot_mat <- m_boot %>% 
+  map(unlist) %>% 
+  unlist() %>% 
+  matrix(ncol = 12, byrow = TRUE) %>% 
+  `colnames<-`(clnms)
 
-formula_m0 <- as.formula(paste(y, "~", paste(c(x, d), collapse = " + ")))
-formula_m1x <- as.formula(paste(y, "~", paste(c(x, d, m1, paste(d, m1, sep = "*")), collapse = " + ")))
-formula_m2x <- as.formula(paste(y, "~", paste(c(x, d, m12, paste(d, m12, sep = "*")), collapse = " + ")))
+m_out <- apply(m_boot_mat, 2, quantile, probs = c(0.025, 0.975)) %>% 
+  t() %>% 
+  as_tibble() %>%
+  bind_cols(est = as.numeric(est_m), .) %>% 
+  mutate_all( ~ round(.x, digits = 3)) %>% 
+  mutate(intv = paste0("(", `2.5%`, ", ", `97.5%`, ")")) %>% 
+  mutate(out = paste(est, intv), name = clnms) %>% 
+  dplyr::select(name, est, `2.5%`, `97.5%`, out)
 
-# outcome models
-glm_m0 <- glm(formula_m0, data = df)
-glm_m1x <- glm(formula_m1x, data = df)
-glm_m2x <- glm(formula_m2x, data = df)
-glm_ymodels_x <- list(glm_m0, glm_m1x, glm_m2x)
-
-paths_glm_x <- paths(a = d, y = y, m = mediators,
-                     glm_ymodels_x, data = df, nboot = 2000)
-
-pure <- paths_glm_x$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
-
-
-hybrid <- paths_glm_x$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
-
-m_out2b <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "x")
-
-##########################################
-## RI with D-M and D-C interactions
-##########################################
-
-formula_m0xx <- as.formula(paste(y, "~", paste(c(x, d, paste(d, x, sep = "*")), collapse = " + ")))
-formula_m1xx <- as.formula(paste(y, "~", paste(c(x, d, m1, paste(d, x, sep = "*"),
-                                                 paste(d, m1, sep = "*")), collapse = " + ")))
-formula_m2xx <- as.formula(paste(y, "~", paste(c(x, d, m12, paste(d, x, sep = "*"),
-                                                 paste(d, m12, sep = "*")), collapse = " + ")))
-
-# outcome models
-glm_m0xx <- glm(formula_m0xx, data = df)
-glm_m1xx <- glm(formula_m1xx, data = df)
-glm_m2xx <- glm(formula_m2xx, data = df)
-glm_ymodels_xx <- list(glm_m0xx, glm_m1xx, glm_m2xx)
-
-paths_glm_xx <- paths(a = d, y = y, m = mediators,
-                     glm_ymodels_xx,  data = df, nboot = 2000)
-
-pure <- paths_glm_xx$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
-
-
-hybrid <- paths_glm_xx$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
-
-m_out2c <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "xx")
-
-m_out2 <- bind_rows(m_out2a, m_out2b, m_out2c) %>% 
-  filter(estimator == "pure")
-
-save.image(file = "table5-8.RData")
-
-write_csv(m_out2, file = "table5-8.csv")
-
+write_csv(m_out, file = "table5-8.csv")

@@ -4,12 +4,12 @@ capture log close
 set more off
 
 //office
-*global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
-*global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
 
 //home
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
+*global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
+*global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
 
 log using "${logdir}table_5-8.log", replace 
 
@@ -30,103 +30,61 @@ rename ppeducat_4 ba
 
 recode ppgender (3=0) (4=1), gen(female)
 
+foreach x in emo p_harm ppage female hs sc ba ppincimp {
+	quietly sum `x'
+	replace `x' = `x'-r(mean)
+	}
+
 // EXPOSURE D = tone_eth
 // MEDIATOR M1 = p_harm
 // MEDIATOR M2 = emo
 // OUTCOME Y = std_immigr
 // BASELINE CONFOUNDERS C = ppage female hs sc ba ppincimp	
 
-//pure regression imputation estimates w/o interactions
-capture program drop pathimp
-program define pathimp, rclass
+//linear model estimates w/o exposure-mediator interactions
+capture program drop linpath
+program define linpath, rclass
 
-	gen D_orig=tone_eth
+	//fit model for M1
+	reg p_harm tone_eth ppage female hs sc ba ppincimp
+		
+	local beta01 = _b[_cons]
+	local beta21 = _b[tone_eth]
 
-	//compute regression imputations
-	reg std_immigr tone_eth ppage female hs sc ba ppincimp
-
-	replace tone_eth = 0
-
-	predict	Y0hat, xb
-
-	replace tone_eth = 1
-
-	predict Y1hat, xb
-
-	replace tone_eth = D_orig
-
+	//fit model for M2 
+	reg emo tone_eth ppage female hs sc ba ppincimp
+		
+	local beta02 = _b[_cons]
+	local beta22 = _b[tone_eth]
+	
+	//fit model for Y|C,D,M1,M2 
 	reg std_immigr tone_eth p_harm emo ppage female hs sc ba ppincimp
 
-	replace tone_eth = 1
+	local gamma2 = _b[tone_eth]
+	local gamma31 = _b[p_harm]
+	local gamma32 = _b[emo]
 
-	predict Y1M1DM2Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1DM2Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M200hat, xb
-
-	replace tone_eth = D_orig
-
+	//fit model for Y|C,D,M1
 	reg std_immigr tone_eth p_harm ppage female hs sc ba ppincimp
-
-	replace tone_eth = 1
-
-	predict Y1M1Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M210hat, xb
-
-	replace tone_eth = D_orig
-
-	//average imputations over sample members
-	reg Y0hat
-	local Ehat_Y0=_b[_cons]
-	drop Y0hat
-
-	reg Y1hat
-	local Ehat_Y1=_b[_cons]
-	drop Y1hat
-
-	reg Y1M10M200hat
-	local Ehat_Y1M10M200=_b[_cons]
-	drop Y1M10M200hat
-
-	reg Y1M10M210hat
-	local Ehat_Y1M10M210=_b[_cons]
-	drop Y1M10M210hat
-
+	
+	local lamda2 = _b[tone_eth]
+	local lamda31 = _b[p_harm]
+	
 	//compute effect estimates
-	return scalar ATE=`Ehat_Y1'-`Ehat_Y0'
-	return scalar PSE_DY=`Ehat_Y1M10M200'-`Ehat_Y0'
-	return scalar PSE_DM2Y=`Ehat_Y1M10M210'-`Ehat_Y1M10M200'
-	return scalar PSE_DM1Y=`Ehat_Y1'-`Ehat_Y1M10M210'
-		
-	drop D_orig Y1M1DM2Dhat Y1M1Dhat
+	local MNDE = `gamma2'*(1-0)
+	local MNIE = (`beta21'*`gamma31' + `beta22'*`gamma32')*(1-0)
+	
+	local NDE_M1 = `lamda2'*(1-0)
+	local NIE_M1 = `beta21'*`lamda31'*(1-0)
+	
+	return scalar ATE = `NDE_M1' + `NIE_M1'
+	return scalar PSE_DY = `MNDE'
+	return scalar PSE_DM2Y = `NDE_M1' - `MNDE'
+	return scalar PSE_DM1Y = `NIE_M1'
 	
 end
 
-quietly pathimp
+quietly linpath
 
 di r(ATE)
 di r(PSE_DY)
@@ -135,104 +93,62 @@ di r(PSE_DM1Y)
 
 quietly bootstrap ///
 	ATE=r(ATE) PSE_DY=r(PSE_DY) PSE_DM2Y=r(PSE_DM2Y) PSE_DM1Y=r(PSE_DM1Y), ///
-	reps(2000) seed(60637): pathimp
+	reps(2000) seed(60637): linpath
 		
 mat list e(ci_percentile)
 
-//pure regression imputation estimates w/ D x {M1,M2} interactions
-capture program drop pathimpx
-program define pathimpx, rclass
+//linear model estimates w/ exposure-mediator interactions
+capture program drop linpathx
+program define linpathx, rclass
 
-	gen D_orig=tone_eth
-
-	//compute regression imputations
-	reg std_immigr tone_eth ///
-		ppage female hs sc ba ppincimp
-
-	replace tone_eth = 0
-
-	predict	Y0hat, xb
-
-	replace tone_eth = 1
-
-	predict Y1hat, xb
-
-	replace tone_eth = D_orig
-
-	reg std_immigr i.tone_eth##c.p_harm i.tone_eth##c.emo ///
-		ppage female hs sc ba ppincimp
-
-	replace tone_eth = 1
-
-	predict Y1M1DM2Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1DM2Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M200hat, xb
-
-	replace tone_eth = D_orig
-
-	reg std_immigr i.tone_eth##c.p_harm ///
-		ppage female hs sc ba ppincimp
-
-	replace tone_eth = 1
-
-	predict Y1M1Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M210hat, xb
-
-	replace tone_eth = D_orig
-
-	//average imputations over sample members
-	reg Y0hat
-	local Ehat_Y0=_b[_cons]
-	drop Y0hat
-
-	reg Y1hat
-	local Ehat_Y1=_b[_cons]
-	drop Y1hat
-
-	reg Y1M10M200hat
-	local Ehat_Y1M10M200=_b[_cons]
-	drop Y1M10M200hat
-
-	reg Y1M10M210hat
-	local Ehat_Y1M10M210=_b[_cons]
-	drop Y1M10M210hat
-
-	//compute effect estimates
-	return scalar ATE=`Ehat_Y1'-`Ehat_Y0'
-	return scalar PSE_DY=`Ehat_Y1M10M200'-`Ehat_Y0'
-	return scalar PSE_DM2Y=`Ehat_Y1M10M210'-`Ehat_Y1M10M200'
-	return scalar PSE_DM1Y=`Ehat_Y1'-`Ehat_Y1M10M210'
+	//fit model for M1|C,D
+	reg p_harm tone_eth ppage female hs sc ba ppincimp
 		
-	drop D_orig Y1M1DM2Dhat Y1M1Dhat
+	local beta01 = _b[_cons]
+	local beta21 = _b[tone_eth]
+
+	//fit model for M2|C,D 
+	reg emo tone_eth ppage female hs sc ba ppincimp
+		
+	local beta02 = _b[_cons]
+	local beta22 = _b[tone_eth]
+		
+	//fit model for Y|C,D,M1,M2 
+	reg std_immigr ///
+		c.tone_eth##c.p_harm ///
+		c.tone_eth##c.emo ///
+		ppage female hs sc ba ppincimp
+	
+	local gamma2 = _b[c.tone_eth]
+	local gamma31 = _b[c.p_harm]
+	local gamma41 = _b[c.tone_eth#c.p_harm]
+	local gamma32 = _b[c.emo]
+	local gamma42 = _b[c.tone_eth#c.emo]
+
+	//fit model for Y|C,D,M1 
+	reg std_immigr ///
+		c.tone_eth##c.p_harm ///
+		ppage female hs sc ba ppincimp
+
+	local lamda2 = _b[c.tone_eth]
+	local lamda31 = _b[c.p_harm]
+	local lamda41 = _b[c.tone_eth#c.p_harm]
+	
+	//compute effect estimates
+	local MNDE = (`gamma2' + `gamma41'*(`beta01'+`beta21'*0) + `gamma42'*(`beta02'+`beta22'*0))*(1-0)
+	local MNIE = (`beta21'*(`gamma31' + `gamma41'*1) + `beta22'*(`gamma32' + `gamma42'*1))*(1-0)
+	
+	local NDE_M1 = (`lamda2' + `lamda41'*(`beta01'+`beta21'*0))*(1-0)
+	local NIE_M1 = (`beta21'*(`lamda31' + `lamda41'*1))*(1-0)
+	
+	return scalar ATE = `NDE_M1' + `NIE_M1'
+	return scalar PSE_DY = `MNDE'
+	return scalar PSE_DM2Y = `NDE_M1' - `MNDE'
+	return scalar PSE_DM1Y = `NIE_M1'
 	
 end
 
-quietly pathimpx
+quietly linpathx
 
 di r(ATE)
 di r(PSE_DY)
@@ -241,122 +157,90 @@ di r(PSE_DM1Y)
 
 quietly bootstrap ///
 	ATE=r(ATE) PSE_DY=r(PSE_DY) PSE_DM2Y=r(PSE_DM2Y) PSE_DM1Y=r(PSE_DM1Y), ///
-	reps(2000) seed(60637): pathimpx
+	reps(2000) seed(60637): linpathx
 		
 mat list e(ci_percentile)
 
-//pure regression imputation estimates w/ D x {M1,M2,C} interactions
-capture program drop pathimpxx
-program define pathimpxx, rclass
+//IPW estimates
+capture program drop ipwpath
+program define ipwpath, rclass
 
-	gen D_orig=tone_eth
+	//fit logit model for D|C
+	logit tone_eth ppage female hs sc ba ppincimp
+	est store DModel_1
 
-	//compute regression imputations
-	reg std_immigr ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
+	//fit logit model for D|C,M1
+	logit tone_eth p_harm ppage female hs sc ba ppincimp
+	est store DModel_2
+	
+	//fit logit model for D|C,M1,M2
+	logit tone_eth p_harm emo ppage female hs sc ba ppincimp
+	est store DModel_3
 
-	replace tone_eth = 0
+	//predict exposure probabilities
+	est restore DModel_1
+	predict phat_d_C, pr
+	gen phat_dstar_C=1-phat_d_C
 
-	predict	Y0hat, xb
+	est restore DModel_2
+	predict phat_d_CM1, pr
+	gen phat_dstar_CM1=1-phat_d_CM1
 
-	replace tone_eth = 1
+	est restore DModel_3
+	predict phat_d_CM1M2, pr
+	gen phat_dstar_CM1M2=1-phat_d_CM1M2
+	
+	//compute stabilized weights
+	logit tone_eth
+	predict phat_d, pr
+	gen phat_dstar=1-phat_d
+	
+	gen _sw1=phat_dstar/phat_dstar_C if tone_eth==0
+	gen _sw2=phat_d/phat_d_C if tone_eth==1
+	gen _sw3=(phat_dstar_CM1*phat_d)/(phat_d_CM1*phat_dstar_C) if tone_eth==1
+	gen _sw5=(phat_dstar_CM1M2*phat_d)/(phat_d_CM1M2*phat_dstar_C) if tone_eth==1
 
-	predict Y1hat, xb
+	//censor stabilized weights at 1st and 99th percentiles
+	foreach i of var _sw* {
+		centile `i', c(1 99) 
+		replace `i'=r(c_1) if `i'<r(c_1) & `i'!=.
+		replace `i'=r(c_2) if `i'>r(c_2) & `i'!=.
+		}
 
-	replace tone_eth = D_orig
+	//compute weighted means of Y
+	reg std_immigr [pw=_sw1] if tone_eth==0
+	local Ehat_Y0 = _b[_cons]
 
-	reg std_immigr ///
-		i.tone_eth##c.p_harm ///
-		i.tone_eth##c.emo ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
+	reg std_immigr [pw=_sw2] if tone_eth==1
+	local Ehat_Y1 = _b[_cons]
 
-	replace tone_eth = 1
+	reg std_immigr [pw=_sw3] if tone_eth==1
+	local Ehat_Y1M10 = _b[_cons]
 
-	predict Y1M1DM2Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1DM2Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M200hat, xb
-
-	replace tone_eth = D_orig
-
-	reg std_immigr ///
-		i.tone_eth##c.p_harm ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 1
-
-	predict Y1M1Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M210hat, xb
-
-	replace tone_eth = D_orig
-
-	//average imputations over sample members
-	reg Y0hat
-	local Ehat_Y0=_b[_cons]
-	drop Y0hat
-
-	reg Y1hat
-	local Ehat_Y1=_b[_cons]
-	drop Y1hat
-
-	reg Y1M10M200hat
-	local Ehat_Y1M10M200=_b[_cons]
-	drop Y1M10M200hat
-
-	reg Y1M10M210hat
-	local Ehat_Y1M10M210=_b[_cons]
-	drop Y1M10M210hat
-
+	reg std_immigr [pw=_sw5] if tone_eth==1
+	local Ehat_Y1M10M20 = _b[_cons]
+	
 	//compute effect estimates
-	return scalar ATE=`Ehat_Y1'-`Ehat_Y0'
-	return scalar PSE_DY=`Ehat_Y1M10M200'-`Ehat_Y0'
-	return scalar PSE_DM2Y=`Ehat_Y1M10M210'-`Ehat_Y1M10M200'
-	return scalar PSE_DM1Y=`Ehat_Y1'-`Ehat_Y1M10M210'
-		
-	drop D_orig Y1M1DM2Dhat Y1M1Dhat
+	
+	local MNDE = `Ehat_Y1M10M20' - `Ehat_Y0'
+	local MNIE = `Ehat_Y1' - `Ehat_Y1M10M20'
+
+	local NDE_M1 = `Ehat_Y1M10' - `Ehat_Y0'
+	local NIE_M1 = `Ehat_Y1' - `Ehat_Y1M10'
+	
+	return scalar ATE = `Ehat_Y1' - `Ehat_Y0'
+	return scalar PSE_DY = `MNDE'
+	return scalar PSE_DM2Y = `NDE_M1' - `MNDE'
+	return scalar PSE_DM1Y = `NIE_M1'
+	
+	drop phat_d_* phat_dstar_* phat_d phat_dstar _sw* _est_DModel_* 		
+	
+	//reset estimation sample for bootstrap
+	reg tone_eth
 	
 end
 
-quietly pathimpxx
+quietly ipwpath
 
 di r(ATE)
 di r(PSE_DY)
@@ -365,7 +249,7 @@ di r(PSE_DM1Y)
 
 quietly bootstrap ///
 	ATE=r(ATE) PSE_DY=r(PSE_DY) PSE_DM2Y=r(PSE_DM2Y) PSE_DM1Y=r(PSE_DM1Y), ///
-	reps(2000) seed(60637): pathimpxx
+	reps(2000) seed(60637): ipwpath
 		
 mat list e(ci_percentile)
 
