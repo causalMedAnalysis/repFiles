@@ -35,21 +35,21 @@ global D att22 //exposure
 global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
-//point estimates from additive linear models
+//compute point estimates using additive linear models
 qui linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) nointer
 mat list e(b)
 
 qui lincde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C) nointer
 mat list e(b)
 
-//point estimates from linear models with DxM interaction
+//compute point estimates from linear models with DxM interaction
 qui linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C)
 mat list e(b)
 
 qui lincde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C)
 mat list e(b)
 		
-//point estimates from linear models with DxM, CxD, and CxM interactions
+//compute point estimates from linear models with DxM, CxD, and CxM interactions
 qui linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) cxd cxm
 mat list e(b)
 
