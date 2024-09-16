@@ -29,7 +29,7 @@ egen std_cesd_age40=std(cesd_age40)
 //tabulate data
 bysort momcol att22: tabstat std_cesd_age40, by(ever_unemp_age3539) s(mean count)
 
-//nonparametric estimates
+//compute nonparametric estimates
 
 //ATEhat^np
 quietly reg std_cesd_age40 i.att22##i.momcol
