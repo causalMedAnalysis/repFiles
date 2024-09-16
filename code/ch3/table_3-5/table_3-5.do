@@ -35,7 +35,7 @@ global D att22 //exposure
 global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
-//IPW point and interval estimates /inverse probability weighting (ipw) estimators
+//compute interval estimates using bootstrap
 qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor ///
 	reps(2000) seed(3308004) saving("${datadir}\bootmed.dta", replace)
 
@@ -90,6 +90,6 @@ log close
 
 //note the ipwmed and ipwcde interval estimates and pvals differ slightly 
 //from those reported in the text, which are based on the R implementation. 
-//this is due to slight differences in how the weights are censored and also to
+//This is due to slight differences in how the weights are censored and also to
 //differences in random numder seeding that influence the bootstrap samples 
 //selected
