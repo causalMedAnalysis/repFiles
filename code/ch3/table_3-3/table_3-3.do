@@ -38,7 +38,7 @@ global Y std_cesd_age40 //outcome
 //set seed to ensure reproducibility
 set seed 3308004
 
-//point estimates from additive linear models
+//compute point estimates using simulation w/ additive models
 qui medsim $Y, dvar($D) mvar($M) d(1) dstar(0) yreg(regress) mreg(logit) ///
 	cvars($C) nsim(2000) nointer reps(2)
 	
@@ -49,7 +49,7 @@ qui impcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) yreg(regress) ///
 
 mat list e(b)
 	
-//point estimates from linear models with DxM, CxD, and CxM interactions
+//compute point estimates using simulation w/ with DxM, CxD, and CxM interactions
 qui medsim $Y, dvar($D) mvar($M) d(1) dstar(0) yreg(regress) mreg(logit) ///
 	cvars($C) nsim(2000) cxd cxm reps(2)
 	
