@@ -34,18 +34,18 @@ global Y work1 //outcome
 //set seed to ensure reproducibility
 set seed 3308004
 
-//point and interval estimates based on linear models
+//compute point and interval estimates based on linear models
 linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) reps(2000) seed(60637)
 lincde $Y, dvar($D) mvar($M) d(1) dstar(0) m(4) cvars($C) reps(2000) seed(60637)
 
-//point and interval estimates based on simulation/imputation
+//compute point and interval estimates based on simulation/imputation
 medsim $Y, dvar($D) mvar($M) d(1) dstar(0) yreg(logit) mreg(regress) ///
 	cvars($C) nsim(1000) reps(2000) seed(60637)
 
 impcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(4) yreg(logit) cvars($C) ///
 	reps(2000) seed(60637) 
 
-//point and interval estimates based on inverse probability weighting
+//compute point and interval estimates based on inverse probability weighting
 ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor reps(2000) seed(60637)
 
 //define function to estimate CDE using IPW with a continuous mediator
