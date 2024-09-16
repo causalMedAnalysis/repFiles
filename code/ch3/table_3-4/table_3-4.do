@@ -35,7 +35,7 @@ global D att22 //exposure
 global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
-//point estimates
+//compute point estimates using IPW
 qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor
 mat list e(b)
 
