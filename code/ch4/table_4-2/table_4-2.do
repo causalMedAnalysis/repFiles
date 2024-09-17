@@ -5,7 +5,7 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/rwrlite, replace //module to interventional effects
+github install causalMedAnalysis/rwrlite, replace //module to estimate interventional effects
 
 //specify directories 
 global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
