@@ -1,4 +1,4 @@
-/*Table 4.2*/
+/*Table 4.3*/
 capture clear all
 capture log close
 set more off
