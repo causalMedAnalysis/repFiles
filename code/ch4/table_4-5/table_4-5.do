@@ -2,6 +2,7 @@
 capture clear all
 capture log close
 set more off
+set maxvar 50000
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
