@@ -19,7 +19,7 @@ copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79B
 	"${datadir}NLSY79\"
 
 //open log
-log using "${logdir}table_4-2.log", replace 
+log using "${logdir}table_4-5.log", replace 
 
 //load data
 use "${datadir}NLSY79\nlsy79BK_ed2.dta"
