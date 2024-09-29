@@ -45,7 +45,7 @@ qui ventsim $Y, dvar($D) mvar($M) lvars($L) cvars($C) d(1) dstar(0) m(10.82) ///
 
 mat list e(b)
 
-//compute point estimates using simulation w/ DxM interaction
+//compute point estimates using simulation w/ DxM, CxD, CxM, and LxM interactions
 qui ventsim $Y, dvar($D) mvar($M) lvars($L) cvars($C) d(1) dstar(0) m(10.82) ///
 	mreg(regress) yreg(regress) lregs(logit) nsim(2000) cxd cxm lxm reps(2)
 
