@@ -55,7 +55,7 @@ mat list e(ci_percentile)
 
 //compute IPW interval estimates
 qui ipwvent $Y, dvar($D) mvar($M) lvar($L) cvars($C) d(1) dstar(0) m(10.82) ///
-	mreg(regress) lreg(logit) censor cxd lxd ///
+	mreg(regress) lreg(logit) censor(1 99) cxd lxd ///
 	reps(2000) seed(8675309) saving("${datadir}\bootipw.dta", replace)
 
 mat list e(ci_percentile)
