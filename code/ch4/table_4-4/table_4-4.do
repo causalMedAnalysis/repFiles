@@ -37,13 +37,13 @@ global Y std_cesd_age40 //outcome
 
 //compute point estimates using ipw estimates w/ additive models
 qui ipwvent $Y, dvar($D) mvar($M) lvar($L) cvars($C) d(1) dstar(0) m(10.82) ///
-	mreg(regress) lreg(logit) censor
+	mreg(regress) lreg(logit) censor(1 99)
 
 mat list e(b)
 	
 //compute point estimates using ipw w/ CxD and LxD interactions
 qui ipwvent $Y, dvar($D) mvar($M) lvar($L) cvars($C) d(1) dstar(0) m(10.82) ///
-	mreg(regress) lreg(logit) censor cxd lxd
+	mreg(regress) lreg(logit) censor(1 99) cxd lxd
 
 mat list e(b)
 
