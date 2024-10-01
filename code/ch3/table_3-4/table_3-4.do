@@ -36,10 +36,10 @@ global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
 //compute point estimates using IPW
-qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor
+qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor(1 99)
 mat list e(b)
 
-qui ipwcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C) censor
+qui ipwcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C) censor(1 99)
 mat list e(b)
 
 log close
