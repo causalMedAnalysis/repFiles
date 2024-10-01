@@ -46,7 +46,7 @@ impcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(4) yreg(logit) cvars($C) ///
 	reps(2000) seed(60637) 
 
 //compute point and interval estimates based on inverse probability weighting
-ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor reps(2000) seed(60637)
+ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor(1 99) reps(2000) seed(60637)
 
 //define function to estimate CDE using IPW with a continuous mediator
 capture program drop ipwcde_Mcon
