@@ -2,67 +2,61 @@
 capture clear all
 capture log close
 set more off
+set maxvar 50000
 
-//office
-*global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
-*global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
-*global figdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\figures\ch4\" 
+//install required modules
+net install github, from("https://haghish.github.io/github/")
+github install causalMedAnalysis/rwrlite, replace 
 
-//home
+//specify directories 
 global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
 global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
 global figdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\figures\ch4\" 
 
+//download data
+copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
+	"${datadir}plowUse\"
+
+//open log
 log using "${logdir}figure_4-10.log", replace 
 
-//input data
-use "${datadir}plowUse\plowUse.dta", clear
+//load data
+use "${datadir}plowUse\plowUse.dta"
 
-global allvars ///
-	women_politics plow ln_income ///
-	agricultural_suitability tropical_climate large_animals rugged ///
-	polity2_2000
+//keep complete cases
+drop if missing(women_politics, plow, ln_income, agricultural_suitability, ///
+	tropical_climate, large_animals, rugged, polity2_2000)
 
-foreach v in $allvars {
-	drop if missing(`v')
-	}
-
-keep isocode $allvars
-
+//recode variables
 replace plow = round(plow)
 
 replace women_politics = women_politics/100
 
-recode polity2_2000 (-10/-6=1) (-5/5=2) (6/10=3), gen(authGovCat)
-quietly tab authGovCat, gen(authGovCat_)
+recode polity2_2000 (-10/-6=1) (-5/5=2) (6/10=3), gen(authGov)
+
+//define macros for different variables
+global C agricultural_suitability tropical_climate large_animals rugged //baseline confounders
+global D plow //exposure
+global L authGov //exposure-induced confounder
+global M ln_income //mediator
+global Y women_politics //outcome
 
 //compute RWR estimates
-
-//compute bootstrap CIs
-quietly bootstrap ///
-	OE=_b[rATE] IDE=_b[rNDE] IIE=_b[rNIE] CDE=_b[CDE], ///
-	reps(200) seed(60637): ///
-		rwrmed women_politics authGovCat, ///
-			avar(plow) mvar(ln_income) ///
-			cvar(agricultural_suitability tropical_climate large_animals rugged) ///
-			a(0) astar(1) m(7.5) mreg(regress)
+qui rwrlite $Y $L, dvar($D) mvar($M) cvars($C) d(1) dstar(0) m(7.5)
 
 scalar IDE=_b[IDE] 
 scalar OE=_b[OE]
 
 //specify range for sensitivity parameters under M-Y confounding
 clear
-
 set obs 1
 
 gen delta_UYgivCDLM=.
 gen delta_DUgivC=.
 
 local counter=1 
-
 forval i=-0.1(0.01)0.1 {
 	forval j=-0.1(0.01)0.1 {
-		
 		quietly replace delta_UYgivCDLM=`i' if _n==`counter'
 		quietly replace delta_DUgivC=`j'  if _n==`counter'
 		
@@ -75,12 +69,12 @@ forval i=-0.1(0.01)0.1 {
 drop if delta_UYgivCDLM==.
 
 //compute bias-adjusted estimates
-gen ide_adj = IDE-(delta_UYgivCDLM*delta_DUgivC)
-gen oe_adj = OE+(delta_UYgivCDLM*delta_DUgivC)
+gen ide_adj = IDE - (delta_UYgivCDLM * delta_DUgivC)
+gen oe_adj = OE + (delta_UYgivCDLM * delta_DUgivC)
 
 format ide_adj oe_adj %12.3f
 
-//create contour plots of bias-adjusted estimates against sensitivity parameters
+//create contour plots of bias-adjusted estimates
 set scheme s2mono
 
 twoway ///
