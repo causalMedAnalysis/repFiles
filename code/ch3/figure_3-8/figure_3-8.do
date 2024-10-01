@@ -2,11 +2,11 @@
 capture clear all
 capture log close
 set more off
-
+/*
 //install required modules
 net install github, from("https://haghish.github.io/github/")
 github install causalMedAnalysis/ipwmed, replace //module to estimate natural effects
-
+*/
 //specify directories 
 global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
 global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch3\_LOGS\"
@@ -36,7 +36,7 @@ global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
 //compute bootstrap estimates based on IPW
-qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor ///
+qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor(1 99) ///
 	reps(2000) seed(3308004) saving("${datadir}\bootmed.dta", replace)
 
 //plot kernel density of bootstrap estimates
