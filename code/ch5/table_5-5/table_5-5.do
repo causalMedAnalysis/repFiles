@@ -4,9 +4,9 @@ capture log close
 set more off
 
 //install required modules
-*net install github, from("https://haghish.github.io/github/")
-*github install causalMedAnalysis/linpath, replace //module to estimate PSEs
-*github install causalMedAnalysis/ipwpath, replace //module to estimate PSEs
+net install github, from("https://haghish.github.io/github/")
+github install causalMedAnalysis/linpath, replace //module to estimate PSEs
+github install causalMedAnalysis/ipwpath, replace //module to estimate PSEs
 
 //specify directories 
 global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
