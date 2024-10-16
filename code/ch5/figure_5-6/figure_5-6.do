@@ -3,134 +3,53 @@ capture clear all
 capture log close
 set more off
 
-//office
-*global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
-*global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
+//install required modules
+net install github, from("https://haghish.github.io/github/")
+github install causalMedAnalysis/pathimp, replace //module to estimate PSEs
 
-//home
+//specify directories 
 global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
 global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
 global figdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\figures\ch5\" 
 
+//download data
+copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/Brader_et_al2008/Brader_et_al2008.dta" ///
+	"${datadir}Brader_et_al2008\"
+
+//open log
 log using "${logdir}figure_5-6.log", replace 
 
-//input data
+//load data
 use "${datadir}Brader_et_al2008\Brader_et_al2008.dta", clear
 
-drop if ///
-	immigr==. | emo==. | p_harm==.  | tone_eth==. | ///
-	ppage==. | ppeducat==. | ppgender==. | ppincimp==.
-	
+//keep complete cases
+drop if missing(immigr, emo, p_harm, tone_eth, ppage, ppeducat, ppgender, ppincimp)
+
+//standardize outcome
 egen std_immigr=std(4-immigr)
 
+//dummy code controls
 tab ppeducat, gen(ppeducat_)
 drop ppeducat_1
 rename ppeducat_2 hs
 rename ppeducat_3 sc
 rename ppeducat_4 ba
 
-recode ppgender (3=0) (4=1), gen(female)
+tab ppgender, gen(ppgender_)
+drop ppgender_1
+rename ppgender_2 female
 
-// EXPOSURE D = tone_eth
-// MEDIATOR M1 = p_harm
-// MEDIATOR M2 = emo
-// OUTCOME Y = std_immigr
-// BASELINE CONFOUNDERS C = ppage female hs sc ba ppincimp	
+//define macros for different variables
+global C ppage female hs sc ba ppincimp //baseline confounders
+global D tone_eth //exposure
+global M1 p_harm //first mediator
+global M2 emo //second mediator
+global Y std_immigr //outcome
 
-//pure regression imputation estimates w/o interactions
-capture program drop pathimp
-program define pathimp, rclass
+//compute pure regression imputation estimates w/o interactions
+qui pathimp $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) yreg(regress) nointer
 
-	gen D_orig=tone_eth
-
-	//compute regression imputations
-	reg std_immigr tone_eth ppage female hs sc ba ppincimp
-
-	replace tone_eth = 0
-
-	predict	Y0hat, xb
-
-	replace tone_eth = 1
-
-	predict Y1hat, xb
-
-	replace tone_eth = D_orig
-
-	reg std_immigr tone_eth p_harm emo ppage female hs sc ba ppincimp
-
-	replace tone_eth = 1
-
-	predict Y1M1DM2Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1DM2Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M200hat, xb
-
-	replace tone_eth = D_orig
-
-	reg std_immigr tone_eth p_harm ppage female hs sc ba ppincimp
-
-	replace tone_eth = 1
-
-	predict Y1M1Dhat, xb
-
-	replace tone_eth = D_orig
-
-	reg Y1M1Dhat ///
-		i.tone_eth##c.ppage ///
-		i.tone_eth##i.female ///
-		i.tone_eth##i.hs ///
-		i.tone_eth##i.sc ///
-		i.tone_eth##i.ba ///
-		i.tone_eth##c.ppincimp
-
-	replace tone_eth = 0
-
-	predict Y1M10M210hat, xb
-
-	replace tone_eth = D_orig
-
-	//average imputations over sample members
-	reg Y0hat
-	local Ehat_Y0=_b[_cons]
-	drop Y0hat
-
-	reg Y1hat
-	local Ehat_Y1=_b[_cons]
-	drop Y1hat
-
-	reg Y1M10M200hat
-	local Ehat_Y1M10M200=_b[_cons]
-	drop Y1M10M200hat
-
-	reg Y1M10M210hat
-	local Ehat_Y1M10M210=_b[_cons]
-	drop Y1M10M210hat
-
-	//compute effect estimates
-	return scalar ATE=`Ehat_Y1'-`Ehat_Y0'
-	return scalar PSE_DY=`Ehat_Y1M10M200'-`Ehat_Y0'
-	return scalar PSE_DM2Y=`Ehat_Y1M10M210'-`Ehat_Y1M10M200'
-	return scalar PSE_DM1Y=`Ehat_Y1'-`Ehat_Y1M10M210'
-		
-	drop D_orig Y1M1DM2Dhat Y1M1Dhat
-	
-end
-
-//compute point estimate of direct effect
-quietly pathimp
-
-scalar PSE_DY=r(PSE_DY)
+scalar PSE_DY=_b[PSE_DY]
 
 //compute reference values for sensitivity parameters
 qui reg std_immigr tone_eth p_harm emo ppage female hs sc ba ppincimp
@@ -145,17 +64,14 @@ local DU_colgrad = _b[tone_eth]
 
 //specify range for sensitivity parameters under M-Y confounding
 clear
-
 set obs 1
 
 gen delta_UYgivCDM1M2=.
 gen delta_DUgivCM1M2=.
 
 local counter=1 
-
 forval i=0.0(0.1)2.1 {
 	forval j=-0.5(0.025)0.5 {
-		
 		quietly replace delta_UYgivCDM1M2=`i' if _n==`counter'
 		quietly replace delta_DUgivCM1M2=`j'  if _n==`counter'
 		
@@ -172,7 +88,7 @@ gen pse_DY_adj = PSE_DY - (delta_UYgivCDM1M2 * delta_DUgivCM1M2)
 
 format pse_DY_adj %12.3f
 
-//create contour plot of bias-adjusted estimates against sensitivity parameters
+//create contour plot of bias-adjusted estimates
 set scheme s2mono
 
 twoway ///
