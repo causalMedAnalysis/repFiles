@@ -1,164 +1,210 @@
-###Table 3.5###
+# Preliminaries
+chapter <- "ch3"
+title <- "table_3-5"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr", "foreach", "doParallel", "doRNG")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-#install.packages(packages)
+# Script:      .../code/ch3/table_3-5.R
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R
 
-nboot <- 2000
+# Outputs:     .../code/ch3/_LOGS/table_3-5_log.txt
 
-ncores <- parallel::detectCores()-1
+# Description: Replicates Chapter 3, Table 3-5: Inferential Statistics for 
+#              Total, Direct, and Indirect Effects of College Attendance on 
+#              CES-D Scores Computed from the NLSY using Inverse Probability 
+#              Weighting and the Nonparametric Bootstrap.
+#-------------------------------------------------------------------------------
 
-##office
-datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
 
-##home
-#datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(tidyverse)
+library(haven)
 
-sink(paste(logdir, "table_3-5_log.txt", sep=""))
 
-##input data 
-nlsy <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
 
-nlsy <- nlsy[complete.cases(nlsy[,c("cesd_age40", "ever_unemp_age3539", "att22", "female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")]),]
 
-nlsy$std_cesd_age40 <- (nlsy$cesd_age40-mean(nlsy$cesd_age40))/sd(nlsy$cesd_age40)
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# utilities
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+# IPW estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/ipwmed.R")
+# IPW CDE estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/ipwcde.R")
 
-##inverse probability weighting estimators
 
-#define functions for estimators
 
-ipwmed <- function(data) {
-	
-	df <- data
 
-	Dmodel_1 <- glm(att22~female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df, family=binomial("logit"))
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
 
-	Dmodel_2 <- glm(att22~ever_unemp_age3539+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df, family=binomial("logit"))
+# exposure
+D <- "att22"
 
-	df$phat_d_C <- predict(Dmodel_1, type = "response")
-	df$phat_dstar_C <- 1-df$phat_d_C
+# mediator
+M <- "ever_unemp_age3539"
 
-	df$phat_d_CM <- predict(Dmodel_2, type = "response")
-	df$phat_dstar_CM <- 1-df$phat_d_CM
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
 
-	df$phat_d <- mean(df$att22)
-	df$phat_dstar <- 1-df$phat_d
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  M,
+  C
+)
 
-	df$sw1[df$att22==0] <- df$phat_dstar[df$att22==0]/df$phat_dstar_C[df$att22==0]
-	df$sw2[df$att22==1] <- df$phat_d[df$att22==1]/df$phat_d_C[df$att22==1]
-	df$sw3[df$att22==1] <- (df$phat_dstar_CM[df$att22==1]*df$phat_d[df$att22==1])/(df$phat_d_CM[df$att22==1]*df$phat_dstar_C[df$att22==1])
+# mediator value for CDE
+m <- 0
 
-	for (i in c("sw1", "sw2", "sw3")) {
-		df[which(df[,i] > quantile(df[,i], probs=0.99, na.rm=T)), i] <- quantile(df[,i], probs=0.99, na.rm=T)
-		df[which(df[,i] < quantile(df[,i], probs=0.01, na.rm=T)), i] <- quantile(df[,i], probs=0.01, na.rm=T)
-		}
+# number of bootstrap replications
+n_reps <- 2000
 
-	Ehat_Y0M0 <- weighted.mean(df$std_cesd_age40[df$att22==0], df$sw1[df$att22==0])
-	Ehat_Y1M1 <- weighted.mean(df$std_cesd_age40[df$att22==1], df$sw2[df$att22==1])
-	Ehat_Y1M0 <- weighted.mean(df$std_cesd_age40[df$att22==1], df$sw3[df$att22==1])
 
-	ATE <- Ehat_Y1M1-Ehat_Y0M0
-	NDE <- Ehat_Y1M0-Ehat_Y0M0
-	NIE <- Ehat_Y1M1-Ehat_Y1M0
 
-	point.est <- list(ATE, NDE, NIE)
 
-	return(point.est)
-	}
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+nlsy_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+)
 
-ipwcde <- function(data) {
+nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
 
-	df <- data
 
-	Dmodel <- glm(att22~female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df, family=binomial("logit"))
 
-	Mmodel_1 <- glm(ever_unemp_age3539~att22+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df, family=binomial("logit"))
 
-	df$phat_d_C <- predict(Dmodel, type = "response")
-	df$phat_D_denom <- (df$att22*df$phat_d_C)+((1-df$att22)*(1-df$phat_d_C))
+#----------------------------------------#
+#  ESTIMATE EFFECTS & PERFORM BOOTSTRAP  #
+#----------------------------------------#
+# Additive logit models
 
-	df$phat_m_CD <- predict(Mmodel_1, type = "response")
-	df$phat_M_denom <- (df$ever_unemp_age3539*df$phat_m_CD)+((1-df$ever_unemp_age3539)*(1-df$phat_m_CD))
+# D model 1 formula: f(D|C)
+predictors1_D <- paste(C, collapse = " + ")
+formula1_D_string <- paste(D, "~", predictors1_D)
+formula1_D_string
 
-	df$phat_d <- mean(df$att22)
-	df$phat_D_num <- (df$att22*df$phat_d)+((1-df$att22)*(1-df$phat_d))
+# D model 2 formula: s(D|C,M)
+predictors2_D <- paste(c(M,C), collapse = " + ")
+formula2_D_string <- paste(D, "~", predictors2_D)
+formula2_D_string
 
-	Mmodel_2 <- glm(ever_unemp_age3539~att22, data=df, family=binomial("logit"))
+# M model formula: g(M|C,D)
+predictors_M <- paste(c(D,C), collapse = " + ")
+formula_M_string <- paste(M, "~", predictors_M)
+formula_M_string
 
-	df$phat_m_D <- predict(Mmodel_2, type = "response")
-	df$phat_M_num <- (df$ever_unemp_age3539*df$phat_m_D)+((1-df$ever_unemp_age3539)*(1-df$phat_m_D))
+# Estimate ATE(1,0), NDE(1,0), NIE(1,0)
+out1 <- ipwmed(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  formula1_string = formula1_D_string,
+  formula2_string = formula2_D_string,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # have installed the following R packages: doParallel, doRNG, foreach.
+  # (You do not need to load those packages beforehand, with the library 
+  # function.)
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
+  # argument to FALSE), the results may differ slightly, due to simulation 
+  # variance (even if you specify the same seed).
+)
 
-	df$sw4 <- (df$phat_M_num*df$phat_D_num)/(df$phat_M_denom*df$phat_D_denom)
+# Estimate CDE(1,0,0)
+out1_cde <- ipwcde(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  m = m,
+  formula_D_string = formula1_D_string,
+  formula_M_string = formula_M_string,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ See note above about parallelizing the bootstrap.
+)
 
-	df[which(df[,"sw4"] > quantile(df[,"sw4"], probs=0.99, na.rm=T)), "sw4"] <- quantile(df[, "sw4"], probs=0.99, na.rm=T)
-	df[which(df[,"sw4"] < quantile(df[,"sw4"], probs=0.01, na.rm=T)), "sw4"] <- quantile(df[, "sw4"], probs=0.01, na.rm=T)
 
-	Ymodel <- lm(std_cesd_age40~att22*ever_unemp_age3539, data=df, weights=sw4)
 
-	point.est <- Ymodel$coefficients["att22"]
 
-	return(point.est)
-	}
+#-------------------#
+#  COLLATE RESULTS  #
+#-------------------#
+master <- data.frame(
+  param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)", "CDE(1,0,0)"),
+  ci_low = c(
+    out1$ci_ATE[1],
+    out1$ci_NDE[1],
+    out1$ci_NIE[1],
+    out1_cde$ci_CDE[1]
+  ),
+  ci_high = c(
+    out1$ci_ATE[2],
+    out1$ci_NDE[2],
+    out1$ci_NIE[2],
+    out1_cde$ci_CDE[2]
+  ),
+  pvalue = c(
+    out1$pvalue_ATE,
+    out1$pvalue_NDE,
+    out1$pvalue_NIE,
+    out1_cde$pvalue_CDE
+  )
+)
 
-#setup parallel computing cluster
-my.cluster <- parallel::makeCluster(ncores,type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-clusterExport(cl=my.cluster, list("ipwmed", "ipwcde"), envir=environment())
-registerDoRNG(3308004)
+master |>
+  mutate(
+    across(
+      .cols = !param,
+      .fns = \(x) round(x, 3)
+    )
+  )
 
-#compute bootstrap estimates
-ipw.boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
 
-	boot.data <- nlsy[sample(nrow(nlsy), nrow(nlsy), replace=TRUE),]
-
-	boot.est <- ipwmed(boot.data)
-	
-	boot.est.cde <- ipwcde(boot.data)
-
-	return(c(boot.est, boot.est.cde))
-	}
-
-stopCluster(my.cluster)
-rm(my.cluster)
-
-ipw.boot <- matrix(unlist(ipw.boot), ncol=4, byrow=TRUE)
-
-#compute bootstrap 95% CIs
-ipwest.output <- matrix(data=NA, nrow=4, ncol=3)
-
-for (i in 1:nrow(ipwest.output)) {
-	ipwest.output[i,1] <- round(quantile(ipw.boot[,i], prob=0.025), digits=3)
-	ipwest.output[i,2] <- round(quantile(ipw.boot[,i], prob=0.975), digits=3)
-	}
-
-#compute bootstrap pvalues for null of no effect
-ATE_null <- NDE_null <- NIE_null <- CDE_null <- 0
-
-ipw.boot <- as.data.frame(ipw.boot)
-
-ipw.boot <- 
-	ipw.boot %>% 
-		mutate(
-			ATEpval = 2*min(mean(ifelse(V1>ATE_null, 1, 0)), mean(ifelse(V1<ATE_null, 1, 0))),
-			NDEpval = 2*min(mean(ifelse(V2>NDE_null, 1, 0)), mean(ifelse(V2<NDE_null, 1, 0))),
-			NIEpval = 2*min(mean(ifelse(V3>NIE_null, 1, 0)), mean(ifelse(V3<NIE_null, 1, 0))),
-			CDEpval = 2*min(mean(ifelse(V4>CDE_null, 1, 0)), mean(ifelse(V4<CDE_null, 1, 0))))
-
-for (i in 1:nrow(ipwest.output)) {
-	ipwest.output[i,3] <- round(ipw.boot[1,i+4], digits=3)
-	}
-
-ipwest.output <- data.frame(ipwest.output, row.names=c("ATEhat^ipw", "NDEhat^ipw", "NIEhat^ipw", "CDE0hat^ipw"))
-colnames(ipwest.output) <- c("ll.95ci", "ul.95ci", "pvalue")
-
-print(ipwest.output)
-
+# Close log
 sink()
+
