@@ -1,128 +1,193 @@
-###Table 3.2###
+# Preliminaries
+chapter <- "ch3"
+title <- "table_3-2"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-#install.packages(packages)
+# Script:      .../code/ch3/table_3-2.R
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
 
-##office
-datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
+# Outputs:     .../code/ch3/_LOGS/table_3-2_log.txt
 
-##home
-#datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
+# Description: Replicates Chapter 3, Table 3-2: Total, Direct, and Indirect 
+#              Effects of College Attendance on CES-D Scores as Estimated from 
+#              Linear Models Fit to the NLSY.
+#-------------------------------------------------------------------------------
 
-sink(paste(logdir, "table_3-2_log.txt", sep=""))
 
-##input data
-nlsy <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(tidyverse)
+library(haven)
 
-nlsy <- nlsy[complete.cases(nlsy[,c("cesd_age40", "ever_unemp_age3539", "att22", "female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")]),]
 
-nlsy$std_cesd_age40 <- (nlsy$cesd_age40-mean(nlsy$cesd_age40))/sd(nlsy$cesd_age40)
 
-##linear model estimators
 
-#linear model w/o exposure-mediator interaction
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# utilities
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+# product-of-coefficients estimator, based on linear models
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/linmed.R")
 
-linmed <- function(data) {
-	df <- data
 
-	Mmodel <- lm(ever_unemp_age3539~att22+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df)
 
-	Ymodel <- lm(std_cesd_age40~ever_unemp_age3539+att22+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df)
 
-	NDE <- CDE <- Ymodel$coefficients["att22"]
-	NIE <- Mmodel$coefficients["att22"]*Ymodel$coefficients["ever_unemp_age3539"]
-	ATE <- NDE+NIE
-	
-	point.est <- list(ATE, NDE, NIE, CDE)
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
 
-	return(point.est)
-	}
+# exposure
+D <- "att22"
 
-linmed.est <- linmed(nlsy)
-linmed.est <- matrix(unlist(linmed.est), ncol=4, byrow=TRUE)
+# mediator
+M <- "ever_unemp_age3539"
 
-#linear model w/ exposure-mediator interaction
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
 
-linmedx <- function(data) {
-	df <- data
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  M,
+  C
+)
 
-	df <- df %>% 
-			mutate(
-				female = female-mean(female), 
-				black = black-mean(black), 
-				hispan = hispan-mean(hispan), 
-				paredu = paredu-mean(paredu), 
-				parprof = parprof-mean(parprof), 
-				parinc_prank = parinc_prank-mean(parinc_prank), 
-				famsize = famsize-mean(famsize), 
-				afqt3 = afqt3-mean(afqt3))
+# mediator value for CDE
+m <- 0
 
-	Mmodel <- lm(ever_unemp_age3539~att22+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df)
 
-	Ymodel <- lm(std_cesd_age40~(ever_unemp_age3539*att22)+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df)
 
-	NDE <- (Ymodel$coefficients["att22"] + Ymodel$coefficients["ever_unemp_age3539:att22"]*Mmodel$coefficients["(Intercept)"])
-	NIE <- Mmodel$coefficients["att22"]*(Ymodel$coefficients["ever_unemp_age3539"] + Ymodel$coefficients["ever_unemp_age3539:att22"])
-	ATE <- NDE+NIE
-	CDE0 <- Ymodel$coefficients["att22"]
-	
-	point.est <- list(ATE, NDE, NIE, CDE0)
 
-	return(point.est)
-	}
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+nlsy_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+)
 
-linmedx.est <- linmedx(nlsy)
-linmedx.est <- matrix(unlist(linmedx.est), ncol=4, byrow=TRUE)
+nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
 
-#linear model w/ exposure-mediator interaction and covariate-exposure-mediator interactions
 
-linmedxx <- function(data) {
-	df <- data
 
-	df <- df %>% 
-			mutate(
-				female = female-mean(female), 
-				black = black-mean(black), 
-				hispan = hispan-mean(hispan), 
-				paredu = paredu-mean(paredu), 
-				parprof = parprof-mean(parprof), 
-				parinc_prank = parinc_prank-mean(parinc_prank), 
-				famsize = famsize-mean(famsize), 
-				afqt3 = afqt3-mean(afqt3))
 
-	Mmodel <- lm(ever_unemp_age3539~att22*(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3), data=df)
+#-------------------------#
+#  ADDITIVE LINEAR MODEL  #
+#-------------------------#
+out1 <- linmed(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  C = C,
+  m = m
+)
 
-	Ymodel <- lm(std_cesd_age40~(ever_unemp_age3539*att22)+(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3)*(ever_unemp_age3539+att22), data=df)
 
-	NDE <- (Ymodel$coefficients["att22"] + Ymodel$coefficients["ever_unemp_age3539:att22"]*Mmodel$coefficients["(Intercept)"])
-	NIE <- Mmodel$coefficients["att22"]*(Ymodel$coefficients["ever_unemp_age3539"] + Ymodel$coefficients["ever_unemp_age3539:att22"])
-	ATE <- NDE+NIE
-	CDE0 <- Ymodel$coefficients["att22"]
-	
-	point.est <- list(ATE, NDE, NIE, CDE0)
 
-	return(point.est)
-	}
 
-linmedxx.est <- linmedxx(nlsy)
-linmedxx.est <- matrix(unlist(linmedxx.est), ncol=4, byrow=TRUE)
+#--------------------------------#
+#  INTERACTIVE MODEL: Version A  #
+#--------------------------------#
+# Linear model with D x M interaction
+out2 <- linmed(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  C = C,
+  m = m,
+  interaction_DM = TRUE
+)
 
-##print output
 
-output <- t(rbind(linmed.est, linmedx.est, linmedxx.est))
 
-output <- data.frame(output, row.names=c("ATEhat", "NDEhat", "NIEhat", "CDE0hat"))
-colnames(output) <- c("^lma", "^lmi", "^lmi+")
 
-print(output)
+#--------------------------------#
+#  INTERACTIVE MODEL, Version B  #
+#--------------------------------#
+# Linear model with D x M, C x D, C x M interactions
+out3 <- linmed(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  C = C,
+  m = m,
+  interaction_DM = TRUE,
+  interaction_DC = TRUE,
+  interaction_MC = TRUE
+)
 
+
+
+
+#---------------------#
+#  COLLATE ESTIMATES  #
+#---------------------#
+master <- data.frame(
+  param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)", "CDE(1,0,0)"),
+  est_add = c(
+    out1$ATE,
+    out1$NDE,
+    out1$NIE,
+    out1$CDE
+  ),
+  est_intX = c(
+    out2$ATE,
+    out2$NDE,
+    out2$NIE,
+    out2$CDE
+  ),
+  est_intXX = c(
+    out3$ATE,
+    out3$NDE,
+    out3$NIE,
+    out3$CDE
+  )
+)
+
+master |>
+  mutate(
+    across(
+      .cols = starts_with("est_"),
+      .fns = \(x) round(x, 3)
+    )
+  )
+
+
+# Close log
 sink()
+
