@@ -1,105 +1,261 @@
-###Table 3.3###
+# Preliminaries
+chapter <- "ch3"
+title <- "table_3-3"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr", "mediation")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-#install.packages(packages)
+# Script:      .../code/ch3/table_3-3.R
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R
 
-nsim<-2000
+# Outputs:     .../code/ch3/_LOGS/table_3-3_log.txt
 
+# Description: Replicates Chapter 3, Table 3-3: Total, Direct, and Indirect 
+#              Effects of College Attendance on CES-D Scores as Estimated from 
+#              the NLSY using the Simulation and Imputation Approach.
+#-------------------------------------------------------------------------------
+
+
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(mediation)
+library(tidyverse)
+library(haven)
+
+
+
+
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# regression imputation CDE estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/impcde.R")
+
+
+
+
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
+
+# exposure
+D <- "att22"
+
+# mediator
+M <- "ever_unemp_age3539"
+
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
+
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  M,
+  C
+)
+
+# mediator value for CDE
+m <- 0
+
+# number of simulations
+n_sims <- 2000
+
+
+
+
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+nlsy_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+)
+
+nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
+
+
+
+
+#-------------#
+#  VERSION 1  #
+#-------------#
+# M model: Additive logit model
+# Y model: Additive linear model
+
+# Mediator model formula
+predictors1_M <- paste(c(D,C), collapse = " + ")
+formula1_M_string <- paste(M, "~", predictors1_M)
+formula1_M_string
+
+# Outcome model formula
+predictors1_Y <- paste(c(D,M,C), collapse = " + ")
+formula1_Y_string <- paste(Y, "~", predictors1_Y)
+formula1_Y_string
+
+# Fit mediator and outcome models
+mod1_M <- glm(
+  as.formula(formula1_M_string),
+  family = binomial(link = "logit"),
+  data = nlsy
+)
+mod1_Y <- lm(
+  as.formula(formula1_Y_string),
+  data = nlsy
+)
+
+# Estimate ATE(1,0), NDE(1,0), and NIE(1,0) by simulation estimator
 set.seed(3308004)
+out1 <- mediate(
+  model.m = mod1_M,
+  model.y = mod1_Y,
+  sims = n_sims,
+  treat = D,
+  mediator = M
+)
 
-##office
-datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
+# Estimate CDE(1,0,0) by regression imputation estimator
+out1_cde <- impcde(
+  data = nlsy,
+  model_y = mod1_Y,
+  D = D,
+  M = M,
+  m = m
+)
 
-##home
-#datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
 
-sink(paste(logdir, "table_3-3_log.txt", sep=""))
 
-##input data
-nlsy <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
 
-nlsy <- nlsy[complete.cases(nlsy[,c("cesd_age40", "ever_unemp_age3539", "att22", "female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")]),]
+#-------------#
+#  VERSION 2  #
+#-------------#
+# M model: Logit model with C x D interactions
+# Y model: Linear model with D x M, C x D, C x M interactions
 
-nlsy$std_cesd_age40 <- (nlsy$cesd_age40-mean(nlsy$cesd_age40))/sd(nlsy$cesd_age40)
+# Mediator model formula
+## main effects
+predictors2_M <- paste(c(D,C), collapse = " + ")
+## D x C interactions
+predictors2_M <- paste(
+  predictors2_M,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## full formula
+formula2_M_string <- paste(M, "~", predictors2_M)
+formula2_M_string
 
-##simulation/imputation estimators w/o covariate interactions
+# Outcome model formula
+## main effects
+predictors2_Y <- paste(c(D,M,C), collapse = " + ")
+## D x M interaction
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(D, M, sep = ":", collapse = " + ")
+)
+## D x C interactions
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## M x C interactions
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(M, C, sep = ":", collapse = " + ")
+)
+## full formula
+formula2_Y_string <- paste(Y, "~", predictors2_Y)
+formula2_Y_string
 
-Mmodel <- glm(ever_unemp_age3539~att22+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=nlsy, family=binomial("logit"))
+# Fit mediator and outcome models
+mod2_M <- glm(
+  as.formula(formula2_M_string),
+  family = binomial(link = "logit"),
+  data = nlsy
+)
+mod2_Y <- lm(
+  as.formula(formula2_Y_string),
+  data = nlsy
+)
 
-Ymodel <- lm(std_cesd_age40~ever_unemp_age3539+att22+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=nlsy)
+# Estimate ATE(1,0), NDE(1,0), and NIE(1,0)
+out2 <- mediate(
+  model.m = mod2_M,
+  model.y = mod2_Y,
+  sims = n_sims,
+  treat = D,
+  mediator = M
+)
 
-simest <- mediate(Mmodel, Ymodel, treat="att22", mediator="ever_unemp_age3539", sims=nsim)
+# Estimate CDE(1,0,0) by regression imputation estimator
+out2_cde <- impcde(
+  data = nlsy,
+  model_y = mod2_Y,
+  D = D,
+  M = M,
+  m = m
+)
 
-impcde <- function(data) {
-	df <- data
 
-	Ymodel <- lm(std_cesd_age40~ever_unemp_age3539+att22+female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3, data=df)
 
-	gdata <- df
 
-	gdata$att22 <- 1
-	gdata$ever_unemp_age3539 <- 0
-	Yhat10 <- predict(Ymodel, gdata)
+#---------------------#
+#  COLLATE ESTIMATES  #
+#---------------------#
+master <- data.frame(
+  param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)", "CDE(1,0,0)"),
+  est_v1 = c(
+    out1$tau.coef,
+    out1$z0,
+    out1$d1,
+    out1_cde
+  ),
+  est_v2 = c(
+    out2$tau.coef,
+    out2$z0,
+    out2$d1,
+    out2_cde
+  )
+)
 
-	gdata$att22 <- 0
-	Yhat00 <- predict(Ymodel, gdata)
+master |>
+  mutate(
+    across(
+      .cols = starts_with("est_"),
+      .fns = \(x) round(x, 3)
+    )
+  )
 
-	point.est <- mean(Yhat10-Yhat00)
 
-	return(point.est)
-	}
-
-impcde.est <- impcde(nlsy)
-
-##simulation estimator w/ covariate interactions
-
-Mmodelx <- glm(ever_unemp_age3539~att22*(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3), data=nlsy, family=binomial("logit"))
-
-Ymodelx <- lm(std_cesd_age40~(ever_unemp_age3539*att22)+(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3)*(ever_unemp_age3539+att22), data=nlsy)
-
-simestx <- mediate(Mmodelx, Ymodelx, treat="att22", mediator="ever_unemp_age3539", sims=nsim)
-
-impcdex <- function(data) {
-	df <- data
-
-	Ymodelx <- lm(std_cesd_age40~(ever_unemp_age3539*att22)+(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3)*(ever_unemp_age3539+att22), data=df)
-
-	gdata <- df
-
-	gdata$att22 <- 1
-	gdata$ever_unemp_age3539 <- 0
-	Yhat10 <- predict(Ymodelx, gdata)
-
-	gdata$att22 <- 0
-	Yhat00 <- predict(Ymodelx, gdata)
-
-	point.est <- mean(Yhat10-Yhat00)
-
-	return(point.est)
-	}
-
-impcdex.est <- impcdex(nlsy)
-
-##print output
-sim.imp.est.output <- matrix(data=NA, nrow=4, ncol=2)
-
-sim.imp.est.output[1,]<-c(round(simest$tau.coef, digits=3), round(simestx$tau.coef, digits=3))
-sim.imp.est.output[2,]<-c(round(simest$z0, digits=3), round(simestx$z0, digits=3))
-sim.imp.est.output[3,]<-c(round(simest$d1, digits=3), round(simestx$d1, digits=3))
-sim.imp.est.output[4,]<-c(round(impcde.est, digits=3), round(impcdex.est, digits=3))
-
-sim.imp.est.output <- data.frame(sim.imp.est.output, row.names=c("ATEhat^sim", "NDEhat^sim", "NIEhat^sim", "CDE0hat^imp"))
-colnames(sim.imp.est.output) <- c("Additive Models", "Models w/ interations")
-
-print(sim.imp.est.output)
-
+# Close log
 sink()
+
