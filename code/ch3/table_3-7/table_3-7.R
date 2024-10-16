@@ -1,255 +1,338 @@
-###Table 3.7###
+# Preliminaries
+chapter <- "ch3"
+title <- "table_3-7"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr", "foreach", "doParallel", "doRNG", "boot", "mediation", "Hmisc", "foreign")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-#install.packages(packages)
+# Script:      .../code/ch3/table_3-7.R
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R
 
-nboot<-2000
-nsim<-1000
-ncores<-parallel::detectCores()-1
+# Outputs:     .../code/ch3/_LOGS/table_3-7_log.txt
+
+# Description: Replicates Chapter 3, Table 3-7: Total, Direct, and Indirect 
+#              Effects of Job Training on Employment as Estimated from JOBSII.
+#-------------------------------------------------------------------------------
+
+
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(mediation)
+library(tidyverse)
+library(haven)
+
+
+
+
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# utilities
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+# product-of-coefficients estimator, based on linear models
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/linmed.R")
+# regression imputation CDE estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/impcde.R")
+# IPW estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/ipwmed.R")
+# IPW CDE estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/ipwcde.R")
+
+
+
+
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "work1"
+
+# exposure
+D <- "treat"
+
+# mediator
+M <- "job_seek"
+
+# baseline confounder(s)
+C <- c(
+  "econ_hard",
+  "sex",
+  "age",
+  "nonwhite",
+  "educ",
+  "income"
+)
+
+# mediator value for CDE
+m <- 4
+
+# number of simulations for simulation estimator
+n_sims <- 1000
+
+# number of bootstrap replications
+n_reps <- 2000
+
+
+
+
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+jobs_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/JOBSII/Jobs-NoMiss-Binary.dta"
+)
+
+jobs <- jobs_raw |>
+  zap_labels()
+
+
+
+
+#--------------------------#
+#  LINEAR MODEL ESTIMATOR  #
+#--------------------------#
+# Linear model with D x M interaction
+
+out_lin <- linmed(
+  data = jobs,
+  D = D,
+  M = M,
+  Y = Y,
+  C = C,
+  m = m,
+  interaction_DM = TRUE,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # have installed the following R packages: doParallel, doRNG, foreach.
+  # (You do not need to load those packages beforehand, with the library 
+  # function.)
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
+  # argument to FALSE), the results may differ slightly, due to simulation 
+  # variance (even if you specify the same seed).
+)
+
+
+
+
+#-------------------------------------------------#
+#  SIMULATION & REGRESSION IMPUTATION ESTIMATORS  #
+#-------------------------------------------------#
+# M model: Additive linear model
+# Y model: Logit model with D x M interaction
+
+# Mediator model formula
+predictors_M <- paste(c(D,C), collapse = " + ")
+formula_M_string <- paste(M, "~", predictors_M)
+formula_M_string
+
+# Outcome model formula
+## main effects
+predictors_Y <- paste(c(D,M,C), collapse = " + ")
+## D x M interaction
+predictors_Y <- paste(
+  predictors_Y,
+  "+",
+  paste(D, M, sep = ":", collapse = " + ")
+)
+## full formula
+formula_Y_string <- paste(Y, "~", predictors_Y)
+formula_Y_string
+
+# Fit mediator and outcome models
+mod_M <- lm(
+  as.formula(formula_M_string),
+  data = jobs
+)
+mod_Y <- glm(
+  #as.formula(formula_Y_string),
+  work1 ~ treat*job_seek + econ_hard + sex + age + nonwhite + educ + income,
+  # ^ scoping issues with the update function (used in the impcde bootstrap) 
+  # require us to directly specify the formula, rather than reference the 
+  # formula_Y_string object
+  family = binomial(link = "logit"),
+  data = jobs
+)
+
+# Estimate ATE(1,0), NDE(1,0), and NIE(1,0) by simulation estimator
 set.seed(3308004)
-
-##office
-#datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
-
-##home
-datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
-
-sink(paste(logdir, "table_3-7_log.txt", sep=""))
-
-##input data
-jobs <- read.dta(paste(datadir, "JOBSII/Jobs-NoMiss-Binary.dta", sep=""))
-
-jobs <- jobs %>% 
-	mutate(
-		treat = recode(treat, "control" = 0, "exp" = 1),
-		work1 = recode(work1, "psyump" = 0, "psyemp" = 1),
-		nonwhite = recode(nonwhite, "white0" = 0, "non.white1" = 1),
-		educ = recode(educ, "lt-hs" = 1, "highsc" = 2, "somcol" = 3, "bach" = 4, "gradwk" = 5),
-		income = recode(income, "lt15k" = 1, "15t24k" = 2, "25t39k" = 3, "40t49k" = 4, "50k+" = 5))
-
-##linear models w/ exposure-mediator interaction
-
-linmedx <- function(data) {
-	df <- data
-
-	df <- df %>% 
-		mutate(
-			econ_hard = econ_hard-mean(econ_hard), 
-			sex = sex-mean(sex), 
-			age = age-mean(age), 
-			nonwhite = nonwhite-mean(nonwhite), 
-			educ = educ-mean(educ), 
-			income = income-mean(income))
-
-	Mmodel <- lm(job_seek~treat+econ_hard+sex+age+nonwhite+educ+income, data=df)
-
-	Ymodel <- lm(work1~(job_seek*treat)+econ_hard+sex+age+nonwhite+educ+income, data=df)
-
-	NDE <- (Ymodel$coefficients["treat"] + Ymodel$coefficients["job_seek:treat"]*Mmodel$coefficients["(Intercept)"])
-	NIE <- Mmodel$coefficients["treat"]*(Ymodel$coefficients["job_seek"] + Ymodel$coefficients["job_seek:treat"])
-	ATE <- NDE+NIE
-	CDE4 <- Ymodel$coefficients["treat"] + Ymodel$coefficients["job_seek:treat"]*4
-	
-	point.est <- list(ATE, NDE, NIE, CDE4)
-
-	return(point.est)
-	}
-
-linmedx.est <- linmedx(jobs)
-linmedx.est <- matrix(unlist(linmedx.est), ncol=4, byrow=TRUE)
-
-my.cluster<-parallel::makeCluster(ncores, type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-invisible(clusterEvalQ(cl=my.cluster, library(dplyr)))
-clusterExport(cl=my.cluster, list("linmedx"), envir=environment())
-registerDoRNG(3308004)
-
-linmedx.boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
-	boot.data <- jobs[sample(nrow(jobs), nrow(jobs), replace=TRUE),]
-
-	boot.est <- linmedx(boot.data)
-
-	return(boot.est)
-	}
-
-stopCluster(my.cluster)
-rm(my.cluster)
-
-linmedx.boot <- matrix(unlist(linmedx.boot), ncol=4, byrow=TRUE)
-
-linmedx.output <- matrix(data=NA, nrow=4, ncol=3)
-
-for (i in 1:4) { 
-	linmedx.output[i,1]<-round(linmedx.est[i], digits=3)
-	linmedx.output[i,2]<-round(quantile(linmedx.boot[,i], prob=0.025), digits=3)
-	linmedx.output[i,3]<-round(quantile(linmedx.boot[,i], prob=0.975), digits=3)
-	}
-
-linmedx.output <- data.frame(linmedx.output, row.names=c("ATEhat^lmi", "NDEhat^lmi", "NIEhat^lmi", "CDE4hat^lmi"))
-colnames(linmedx.output) <- c("point.est", "ll.95ci", "ul.95ci")
-
-##simulation estimators
-
-Mmodel <- lm(job_seek~treat+econ_hard+sex+age+nonwhite+educ+income, data=jobs)
-
-Ymodel <- glm(work1~(job_seek*treat)+econ_hard+sex+age+nonwhite+educ+income, data=jobs, family=binomial("logit"))
-
-simest <- mediate(Mmodel, Ymodel, boot=TRUE, treat="treat", mediator="job_seek", sims=nsim, parallel="multicore")
-
-simcde <- function(data, indices) {
-	df <- data[indices,]
-
-	Ymodel <- glm(work1~(job_seek*treat)+econ_hard+sex+age+nonwhite+educ+income, data=df, family=binomial("logit"))
-
-	gdata <- df
-
-	gdata$treat <- 1
-	gdata$job_seek <- 4
-	Ehat_Y14 <- predict(Ymodel, gdata, type = "response")
-
-	gdata$treat <- 0
-	Ehat_Y04 <- predict(Ymodel, gdata, type = "response")
-
-	point.est <- mean(Ehat_Y14-Ehat_Y04)
-
-	return(point.est)
-	}
-
-simcde.boot <- boot(data=jobs, statistic=simcde, R=nboot)
-
-simest.output <- matrix(data=NA, nrow=4, ncol=3)
-simest.output[1,]<-c(round(simest$tau.coef, digits=3), round(simest$tau.ci[1], digits=3), round(simest$tau.ci[2], digits=3))
-simest.output[2,]<-c(round(simest$z0, digits=3), round(simest$z0.ci[1], digits=3), round(simest$z0.ci[2], digits=3))
-simest.output[3,]<-c(round(simest$d1, digits=3), round(simest$d1.ci[1], digits=3),round(simest$d1.ci[2], digits=3))
-simest.output[4,]<-c(round(simcde.boot$t0, digits=3), round(quantile(simcde.boot$t, prob=0.025), digits=3), round(quantile(simcde.boot$t, prob=0.975), digits=3))
-
-simest.output <- data.frame(simest.output, row.names=c("ATEhat^sim", "NDEhat^sim", "NIEhat^sim", "CDE4hat^sim"))
-colnames(simest.output) <- c("point.est", "ll.95ci", "ul.95ci")
-
-##inverse probability weighting estimators
-
-ipwmed <- function(data) {
-	df <- data
-
-	Dmodel_1 <- glm(treat~econ_hard+sex+age+nonwhite+educ+income, data=df, family=binomial("logit"))
-
-	Dmodel_2 <- glm(treat~job_seek+econ_hard+sex+age+nonwhite+educ+income, data=df, family=binomial("logit"))
-
-	df$phat_d_C <- predict(Dmodel_1, type = "response")
-	df$phat_dstar_C <- 1-df$phat_d_C
-
-	df$phat_d_CM <- predict(Dmodel_2, type = "response")
-	df$phat_dstar_CM <- 1-df$phat_d_CM
-
-	df$phat_d <- mean(df$treat)
-	df$phat_dstar <- 1-df$phat_d
-
-	df$sw1[df$treat==0] <- df$phat_dstar[df$treat==0]/df$phat_dstar_C[df$treat==0]
-	df$sw2[df$treat==1] <- df$phat_d[df$treat==1]/df$phat_d_C[df$treat==1]
-	df$sw3[df$treat==1] <- (df$phat_dstar_CM[df$treat==1]*df$phat_d[df$treat==1])/(df$phat_d_CM[df$treat==1]*df$phat_dstar_C[df$treat==1])
-
-	for (i in c("sw1", "sw2", "sw3")) {
-		df[which(df[,i] > quantile(df[,i], probs=0.99, na.rm=T)), i] <- quantile(df[,i], probs=0.99, na.rm=T)
-		df[which(df[,i] < quantile(df[,i], probs=0.01, na.rm=T)), i] <- quantile(df[,i], probs=0.01, na.rm=T)
-		}
-
-	Ehat_Y0M0 <- weighted.mean(df$work1[df$treat==0], df$sw1[df$treat==0])
-	Ehat_Y1M1 <- weighted.mean(df$work1[df$treat==1], df$sw2[df$treat==1])
-	Ehat_Y1M0 <- weighted.mean(df$work1[df$treat==1], df$sw3[df$treat==1])
-
-	ATE <- Ehat_Y1M1-Ehat_Y0M0
-	NDE <- Ehat_Y1M0-Ehat_Y0M0
-	NIE <- Ehat_Y1M1-Ehat_Y1M0
-
-	point.est <- list(ATE, NDE, NIE)
-
-	return(point.est)
-	}
-
-ipwmed.est <- ipwmed(jobs)
-ipwmed.est <- matrix(unlist(ipwmed.est), ncol=3, byrow=TRUE)
-
-my.cluster<-parallel::makeCluster(ncores,type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-clusterExport(cl=my.cluster, list("ipwmed"), envir=environment())
-registerDoRNG(3308004)
-
-ipwmed.boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
-	boot.data <- jobs[sample(nrow(jobs), nrow(jobs), replace=TRUE),]
-
-	boot.est <- ipwmed(boot.data)
-
-	return(boot.est)
-	}
-
-stopCluster(my.cluster)
-rm(my.cluster)
-
-ipwmed.boot <- matrix(unlist(ipwmed.boot), ncol=3, byrow=TRUE)
-
-ipwcde <- function(data, indices) {
-
-	df <- data[indices,]
-
-	Dmodel <- glm(treat~econ_hard+sex+age+nonwhite+educ+income, data=df, family=binomial("logit"))
-
-	Mmodel_1 <- lm(job_seek~treat+econ_hard+sex+age+nonwhite+educ+income, data=df)
-
-	df$phat_d_C <- predict(Dmodel, type = "response")
-	df$phat_D_denom <- (df$treat*df$phat_d_C)+((1-df$treat)*(1-df$phat_d_C))
-
-	df$Ehat_m_CD <- predict(Mmodel_1)
-	df$sighat_m_CD <- sqrt(mean(Mmodel_1$residuals^2))
-	df$phat_M_denom <- dnorm(df$job_seek, mean=df$Ehat_m_CD, sd=df$sighat_m_CD)
-
-	df$phat_d <- mean(df$treat)
-	df$phat_D_num <- (df$treat*df$phat_d)+((1-df$treat)*(1-df$phat_d))
-
-	Mmodel_2 <- lm(job_seek~treat, data=df)
-
-	df$Ehat_m_D <- predict(Mmodel_2)
-	df$sighat_m_D <- sqrt(mean(Mmodel_2$residuals^2))
-	df$phat_M_num <- dnorm(df$job_seek, mean=df$Ehat_m_D, sd=df$sighat_m_D)
-
-	df$sw4 <- (df$phat_M_num*df$phat_D_num)/(df$phat_M_denom*df$phat_D_denom)
-
-	df[which(df[,"sw4"] > quantile(df[,"sw4"], probs=0.99, na.rm=T)), "sw4"] <- quantile(df[, "sw4"], probs=0.99, na.rm=T)
-	df[which(df[,"sw4"] < quantile(df[,"sw4"], probs=0.01, na.rm=T)), "sw4"] <- quantile(df[, "sw4"], probs=0.01, na.rm=T)
-
-	Ymodel <- lm(work1~treat*job_seek, data=df, weights=sw4)
-
-	point.est <- Ymodel$coefficients["treat"] + Ymodel$coefficients["treat:job_seek"]*4
-
-	return(point.est)
-	}
-
-ipwcde.boot <- boot(data=jobs, statistic=ipwcde, R=nboot)
-
-ipwest.output <- matrix(data=NA, nrow=4, ncol=3)
-
-for (i in 1:3) {
-	ipwest.output[i,]<-c(round(ipwmed.est[,i], digits=3), round(quantile(ipwmed.boot[,i], prob=0.025), digits=3), round(quantile(ipwmed.boot[,i], prob=0.975), digits=3))
-	}
-
-ipwest.output[4,]<-c(round(ipwcde.boot$t0, digits=3), round(quantile(ipwcde.boot$t, prob=0.025), digits=3), round(quantile(ipwcde.boot$t, prob=0.975), digits=3))
-
-ipwest.output <- data.frame(ipwest.output, row.names=c("ATEhat^ipw", "NDEhat^ipw", "NIEhat^ipw", "CDE4hat^ipw"))
-colnames(ipwest.output) <- c("point.est", "ll.95ci", "ul.95ci")
-
-##print results
-print(linmedx.output)
-cat("\n")
-print(simest.output)
-cat("\n")
-print(ipwest.output)
-
+out_sim <- mediate(
+  model.m = mod_M,
+  model.y = mod_Y,
+  sims = n_sims,
+  boot = TRUE,
+  treat = D,
+  mediator = M,
+  parallel = "multicore"
+)
+
+# Estimate CDE(1,0,4) by regression imputation estimator
+out_imp_cde <- impcde(
+  data = jobs,
+  model_y = mod_Y,
+  D = D,
+  M = M,
+  m = m,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ See note above about parallelizing the bootstrap.
+)
+
+
+
+
+#-----------------#
+#  IPW ESTIMATOR  #
+#-----------------#
+# Additive logit models
+
+# D model 1 formula: f(D|C)
+predictors1_D <- paste(C, collapse = " + ")
+formula1_D_string <- paste(D, "~", predictors1_D)
+formula1_D_string
+
+# D model 2 formula: s(D|C,M)
+predictors2_D <- paste(c(M,C), collapse = " + ")
+formula2_D_string <- paste(D, "~", predictors2_D)
+formula2_D_string
+
+# M model formula: g(M|C,D)
+formula_M_string # defined above
+
+# Estimate ATE(1,0), NDE(1,0), NIE(1,0)
+out_ipw <- ipwmed(
+  data = jobs,
+  D = D,
+  M = M,
+  Y = Y,
+  formula1_string = formula1_D_string,
+  formula2_string = formula2_D_string,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ See note above about parallelizing the bootstrap.
+)
+
+# Estimate CDE(1,0,0)
+# out_ipw_cde <- ipwcde(
+#   data = jobs,
+#   D = D,
+#   M = M,
+#   Y = Y,
+#   formula_D_string = formula1_D_string,
+#   formula_M_string = formula_M_string,
+#   boot = TRUE,
+#   boot_reps = n_reps,
+#   boot_seed = 3308004,
+#   boot_parallel = TRUE
+#   # ^ See note above about parallelizing the bootstrap.
+# )
+
+
+
+
+#-------------------#
+#  COLLATE RESULTS  #
+#-------------------#
+master <- data.frame(
+  param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)", "CDE(1,0,4)"),
+  
+  # linear models
+  lin_est = c(
+    out_lin$ATE,
+    out_lin$NDE,
+    out_lin$NIE,
+    out_lin$CDE
+  ),
+  lin_ci_low = c(
+    out_lin$ci_ATE[1],
+    out_lin$ci_NDE[1],
+    out_lin$ci_NIE[1],
+    out_lin$ci_CDE[1]
+  ),
+  lin_ci_high = c(
+    out_lin$ci_ATE[2],
+    out_lin$ci_NDE[2],
+    out_lin$ci_NIE[2],
+    out_lin$ci_CDE[2]
+  ),
+  
+  # simulation and regression imputation
+  sim_est = c(
+    out_sim$tau.coef,
+    out_sim$z0,
+    out_sim$d1,
+    out_imp_cde$CDE
+  ),
+  sim_ci_low = c(
+    out_sim$tau.ci[1],
+    out_sim$z0.ci[1],
+    out_sim$d1.ci[1],
+    out_imp_cde$ci_CDE[1]
+  ),
+  sim_ci_high = c(
+    out_sim$tau.ci[2],
+    out_sim$z0.ci[2],
+    out_sim$d1.ci[2],
+    out_imp_cde$ci_CDE[2]
+  ),
+  
+  # IPW
+  ipw_est = c(
+    out_ipw$ATE,
+    out_ipw$NDE,
+    out_ipw$NIE,
+    NA_real_
+  ),
+  ipw_ci_low = c(
+    out_ipw$ci_ATE[1],
+    out_ipw$ci_NDE[1],
+    out_ipw$ci_NIE[1],
+    NA_real_
+  ),
+  ipw_ci_high = c(
+    out_ipw$ci_ATE[2],
+    out_ipw$ci_NDE[2],
+    out_ipw$ci_NIE[2],
+    NA_real_
+  )
+)
+
+master |>
+  mutate(
+    across(
+      .cols = !param,
+      .fns = \(x) round(x, 3)
+    )
+  )
+
+
+# Close log
 sink()
+
