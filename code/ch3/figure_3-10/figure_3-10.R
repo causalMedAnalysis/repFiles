@@ -1,115 +1,219 @@
-###Figure 3.10###
+# Preliminaries
+chapter <- "ch3"
+title <- "figure_3-10"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr", "ggplot2", "gridExtra", "metR", "foreign")
-	
-#install.packages(packages)
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Script:      .../code/ch3/figure_3-10.R
 
-##office
-#datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
-#figdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/figures/ch3/"
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
 
-##home
-datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch3/_LOGS/"
-figdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/figures/ch3/"
+# Outputs:     .../code/ch3/_LOGS/figure_3-10_log.txt
 
-sink(paste(logdir, "figure_3-10_log.txt", sep=""))
-
-##input data
-jobs <- read.dta(paste(datadir, "JOBSII/Jobs-NoMiss-Binary.dta", sep=""))
-
-jobs <- jobs %>% 
-	mutate(
-		treat = recode(treat, "control" = 0, "exp" = 1),
-		work1 = recode(work1, "psyump" = 0, "psyemp" = 1),
-		nonwhite = recode(nonwhite, "white0" = 0, "non.white1" = 1),
-		educ = recode(educ, "lt-hs" = 1, "highsc" = 2, "somcol" = 3, "bach" = 4, "gradwk" = 5),
-		income = recode(income, "lt15k" = 1, "15t24k" = 2, "25t39k" = 3, "40t49k" = 4, "50k+" = 5))
+# Description: Replicates Chapter 3, Figure 3-10: Estimates of Natural Direct 
+#              and Indirect Effects from JOBSII Adjusted for Bias due to 
+#              Unobserved Mediator-Outcome Confounding.
+#-------------------------------------------------------------------------------
 
 
-##compute point estimates using linear models w/ exposure-mediator interaction
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(gridExtra)
+library(metR)
+library(tidyverse)
+library(haven)
 
-linmedx <- function(data) {
-	df <- data
 
-	df <- df %>% 
-		mutate(
-			econ_hard = econ_hard-mean(econ_hard), 
-			sex = sex-mean(sex), 
-			age = age-mean(age), 
-			nonwhite = nonwhite-mean(nonwhite), 
-			educ = educ-mean(educ), 
-			income = income-mean(income))
 
-	Mmodel <- lm(job_seek~treat+econ_hard+sex+age+nonwhite+educ+income, data=df)
 
-	Ymodel <- lm(work1~(job_seek*treat)+econ_hard+sex+age+nonwhite+educ+income, data=df)
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# utilities
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+# product-of-coefficients estimator, based on linear models
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/linmed.R")
 
-	NDE <- (Ymodel$coefficients["treat"] + Ymodel$coefficients["job_seek:treat"]*Mmodel$coefficients["(Intercept)"])
-	NIE <- Mmodel$coefficients["treat"]*(Ymodel$coefficients["job_seek"] + Ymodel$coefficients["job_seek:treat"])
-	ATE <- NDE+NIE
-	CDE4 <- Ymodel$coefficients["treat"] + Ymodel$coefficients["job_seek:treat"]*4
-	
-	point.est <- list(ATE, NDE, NIE, CDE4)
 
-	return(point.est)
-	}
 
-linmedx.est <- linmedx(jobs)
-linmedx.est <- matrix(unlist(linmedx.est), ncol=4, byrow=TRUE)
 
-##specify range for sensitivity parameters under M-Y confounding
-sens.grid <- expand.grid(delta_UYgivCDM=seq(-0.1, 0.1, 0.01), delta_DUgivCM=seq(-0.1, 0.1, 0.01))
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "work1"
 
-##compute bias-adjusted estimates
-adj.grid <- cbind(sens.grid,
-	nde.adj=linmedx.est[1,2]-(sens.grid$delta_UYgivCDM*sens.grid$delta_DUgivCM),
-	nie.adj=linmedx.est[1,3]+(sens.grid$delta_UYgivCDM*sens.grid$delta_DUgivCM))
+# exposure
+D <- "treat"
 
-##create contour plots of bias-adjusted estimates against sensitivity parameters
-nde.plot <- ggplot(adj.grid, aes(x=delta_UYgivCDM, y=delta_DUgivCM, z=nde.adj, colour=stat(level))) +  
-		geom_contour(breaks=seq(round(min(adj.grid$nde.adj), 3), round(max(adj.grid$nde.adj), 3), 0.002), show.legend=FALSE) +
-		scale_colour_distiller(palette="Greys", direction=1) +
-		xlab(expression(delta["UY|C,D,M"])) +
-		ylab(expression(delta["DU|C,M"])) +
-		scale_x_continuous(breaks=seq(-0.1, 0.1, 0.02)) +
-		scale_y_continuous(breaks=seq(-0.1, 0.1, 0.02)) +
-		ggtitle("A. Bias-adjusted NDE(1,0) Estimates") +
-		theme_bw(base_size=11) +
-		theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank()) +
-		geom_text_contour(
-			breaks=seq(round(min(adj.grid$nde.adj), 3), round(max(adj.grid$nde.adj), 3), 0.002),
-			stroke=0.3,
-			size=3,
-			skip=0,
-			color="black")
+# mediator
+M <- "job_seek"
 
-nie.plot <- ggplot(adj.grid, aes(x=delta_UYgivCDM,y=delta_DUgivCM,z=nie.adj,colour=stat(level))) +  
-		geom_contour(breaks=seq(round(min(adj.grid$nie.adj),3),round(max(adj.grid$nie.adj),3),0.002),show.legend=FALSE) +
-		scale_colour_distiller(palette="Greys",direction=1) +
-		xlab(expression(delta["UY|C,D,M"])) +
-		ylab(expression(delta["DU|C,M"])) +
-		scale_x_continuous(breaks=seq(-0.1,0.1,0.02)) +
-		scale_y_continuous(breaks=seq(-0.1,0.1,0.02)) +
-		ggtitle("B. Bias-adjusted NIE(1,0) Estimates") +
-		theme_bw(base_size=11) +
-		theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank()) +
-		geom_text_contour(
-			breaks=seq(round(min(adj.grid$nie.adj),3),round(max(adj.grid$nie.adj),3),0.002),
-			stroke=0.3,
-			size=3,
-			skip=0,
-			color="black")
+# baseline confounder(s)
+C <- c(
+  "econ_hard",
+  "sex",
+  "age",
+  "nonwhite",
+  "educ",
+  "income"
+)
 
-comb.plot <- grid.arrange(nde.plot, nie.plot, ncol=1)
+# mediator value for CDE
+m <- 4
 
-ggsave(paste(figdir, "figure_3-10.png", sep=""), plot=comb.plot, height=8, width=4.5, units="in", dpi=600)
 
+
+
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+jobs_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/JOBSII/Jobs-NoMiss-Binary.dta"
+)
+
+jobs <- jobs_raw |>
+  zap_labels()
+
+
+
+
+#--------------------#
+#  ESTIMATE EFFECTS  #
+#--------------------#
+# Linear model with D x M interaction
+
+out <- linmed(
+  data = jobs,
+  D = D,
+  M = M,
+  Y = Y,
+  C = C,
+  m = m,
+  interaction_DM = TRUE
+)
+
+
+
+
+#---------------------------#
+#  BIAS-ADJUSTED ESTIMATES  #
+#---------------------------#
+# Specify range for sensitivity parameters under M-Y confounding
+sens_grid <- expand.grid(
+  delta_UYgivCDM = seq(-0.1, 0.1, 0.01),
+  delta_DUgivCM = seq(-0.1, 0.1, 0.01)
+)
+
+# Compute bias-adjusted estimates
+adj_grid <- cbind(
+  sens_grid,
+  nde_adj = out$NDE - (sens_grid$delta_UYgivCDM * sens_grid$delta_DUgivCM),
+  nie_adj = out$NIE + (sens_grid$delta_UYgivCDM * sens_grid$delta_DUgivCM)
+)
+
+
+
+
+#------------------------#
+#  CREATE CONTOUR PLOTS  #
+#------------------------#
+# Create contour plots of bias-adjusted estimates against sensitivity parameters
+
+# Common specifications
+common_specs <- list(
+  scale_colour_distiller(palette="Greys", direction=1),
+  xlab(expression(delta["UY|C,D,M"])),
+  ylab(expression(delta["DU|C,M"])),
+  scale_x_continuous(breaks=seq(-0.1, 0.1, 0.02)),
+  scale_y_continuous(breaks=seq(-0.1, 0.1, 0.02)),
+  theme_bw(base_size=11),
+  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
+)
+
+# NDE plot
+plot_nde <- ggplot(
+  adj_grid,
+  aes(x=delta_UYgivCDM, y=delta_DUgivCM, z=nde_adj, color=after_stat(level))
+) +  
+  geom_contour(
+    breaks = seq(
+      round(min(adj_grid$nde_adj), 3),
+      round(max(adj_grid$nde_adj), 3),
+      0.002
+    ),
+    show.legend = FALSE
+  ) +
+  ggtitle("A. Bias-adjusted NDE(1,0) Estimates") +
+  geom_text_contour(
+    breaks = seq(
+      round(min(adj_grid$nde_adj), 3),
+      round(max(adj_grid$nde_adj), 3),
+      0.002
+    ),
+    stroke = 0.3,
+    size = 3,
+    skip = 0,
+    color = "black"
+  ) +
+  common_specs
+
+# NIE plot
+plot_nie <- ggplot(
+  adj_grid,
+  aes(x=delta_UYgivCDM, y=delta_DUgivCM, z=nie_adj, color=after_stat(level))
+) +  
+  geom_contour(
+    breaks = seq(
+      round(min(adj_grid$nie_adj), 3),
+      round(max(adj_grid$nie_adj), 3),
+      0.002
+    ),
+    show.legend = FALSE
+  ) +
+  ggtitle("B. Bias-adjusted NIE(1,0) Estimates") +
+  geom_text_contour(
+    breaks = seq(
+      round(min(adj_grid$nie_adj), 3),
+      round(max(adj_grid$nie_adj), 3),
+      0.002
+    ),
+    stroke = 0.3,
+    size = 3,
+    skip = 0,
+    color = "black"
+  ) +
+  common_specs
+
+# Combine the plots
+plot_comb <- grid.arrange(plot_nde, plot_nie, ncol=1)
+
+# Save the combined plot
+ggsave(
+  paste0(dir_fig, "/", title, ".png"),
+  plot = plot_comb,
+  height = 8,
+  width = 4.5,
+  units = "in",
+  dpi = 600
+)
+
+
+# Close log
 sink()
+
