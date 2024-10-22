@@ -16,6 +16,7 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch3/table_3-3.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R
 
 # Outputs:     .../code/ch3/_LOGS/table_3-3_log.txt
@@ -29,7 +30,6 @@ sink(log_path, split = TRUE)
 #-------------#
 #  LIBRARIES  #
 #-------------#
-library(mediation)
 library(tidyverse)
 library(haven)
 
@@ -39,6 +39,9 @@ library(haven)
 #-----------------------------#
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
+# simulation estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/medsim.R")
 # regression imputation CDE estimator
 #source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
 source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/impcde.R")
@@ -119,28 +122,34 @@ predictors1_Y <- paste(c(D,M,C), collapse = " + ")
 formula1_Y_string <- paste(Y, "~", predictors1_Y)
 formula1_Y_string
 
-# Fit mediator and outcome models
-mod1_M <- glm(
-  as.formula(formula1_M_string),
-  family = binomial(link = "logit"),
-  data = nlsy
+# Define model specifications
+out1_specs <- list(
+  list(
+    func = "glm",
+    formula = as.formula(formula1_M_string),
+    args = list(family = "binomial")
+  ),
+  list(
+    func = "lm",
+    formula = as.formula(formula1_Y_string)
+  )
 )
+
+# Estimate ATE(1,0), NDE(1,0), and NIE(1,0) by simulation estimator
+out1 <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = NULL,
+  model_spec = out1_specs,
+  seed = 3308004
+)
+
+# Estimate CDE(1,0,0) by regression imputation estimator
 mod1_Y <- lm(
   as.formula(formula1_Y_string),
   data = nlsy
 )
-
-# Estimate ATE(1,0), NDE(1,0), and NIE(1,0) by simulation estimator
-set.seed(3308004)
-out1 <- mediate(
-  model.m = mod1_M,
-  model.y = mod1_Y,
-  sims = n_sims,
-  treat = D,
-  mediator = M
-)
-
-# Estimate CDE(1,0,0) by regression imputation estimator
 out1_cde <- impcde(
   data = nlsy,
   model_y = mod1_Y,
@@ -196,27 +205,34 @@ predictors2_Y <- paste(
 formula2_Y_string <- paste(Y, "~", predictors2_Y)
 formula2_Y_string
 
-# Fit mediator and outcome models
-mod2_M <- glm(
-  as.formula(formula2_M_string),
-  family = binomial(link = "logit"),
-  data = nlsy
+# Define model specifications
+out2_specs <- list(
+  list(
+    func = "glm",
+    formula = as.formula(formula2_M_string),
+    args = list(family = "binomial")
+  ),
+  list(
+    func = "lm",
+    formula = as.formula(formula2_Y_string)
+  )
 )
+
+# Estimate ATE(1,0), NDE(1,0), and NIE(1,0)
+out2 <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = NULL,
+  model_spec = out2_specs,
+  seed = 3308004
+)
+
+# Estimate CDE(1,0,0) by regression imputation estimator
 mod2_Y <- lm(
   as.formula(formula2_Y_string),
   data = nlsy
 )
-
-# Estimate ATE(1,0), NDE(1,0), and NIE(1,0)
-out2 <- mediate(
-  model.m = mod2_M,
-  model.y = mod2_Y,
-  sims = n_sims,
-  treat = D,
-  mediator = M
-)
-
-# Estimate CDE(1,0,0) by regression imputation estimator
 out2_cde <- impcde(
   data = nlsy,
   model_y = mod2_Y,
@@ -234,15 +250,15 @@ out2_cde <- impcde(
 master <- data.frame(
   param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)", "CDE(1,0,0)"),
   est_v1 = c(
-    out1$tau.coef,
-    out1$z0,
-    out1$d1,
+    out1[[1]],
+    out1[[2]],
+    out1[[3]],
     out1_cde
   ),
   est_v2 = c(
-    out2$tau.coef,
-    out2$z0,
-    out2$d1,
+    out2[[1]],
+    out2[[2]],
+    out2[[3]],
     out2_cde
   )
 )
