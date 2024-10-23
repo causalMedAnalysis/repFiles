@@ -3,27 +3,28 @@ capture clear all
 capture log close
 set more off
 
-//office
-*global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
-*global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch6\_LOGS\"
+//specify directories 
+global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch6\_LOGS\"
 
-//home
-global datadir "C:\Users\Geoff\Dropbox\D\projects\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
+//download data
+copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+	"${datadir}NLSY79\"
 
+//open log
 log using "${logdir}table_6-3.log", replace 
 
-//input data
+//load data
 use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
 
-drop if missing(cesd_age40, att22, ever_unemp_age3539, female, black, ///
-	hispan, paredu, parprof, parinc_prank, famsize, afqt3, log_faminc_adj_age3539)
+//keep complete cases
+drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, ///
+	female, black, hispan, paredu, parprof, parinc_prank, famsize, afqt3)
 
+//standardize ces-d scores
 egen std_cesd_age40=std(cesd_age40)
 
-/********************************************************
-define parametric MR estimator for interventional effects
-*********************************************************/
+//define multiply robust estimator for interventional effects
 capture program drop mrvent
 program define mrvent, rclass
 
@@ -130,6 +131,12 @@ program define mrvent, rclass
 	gen double `w_11' = `phat_L_CD1' / `phat_L_CD1M'
 	gen double `w_00' = `phat_L_CD0' / `phat_L_CD0M'
 	gen double `w_01' = (`phat_D1_C'*`phat_L_CD1'*`phat_D0_CM') / (`phat_D0_C'*`phat_L_CD1M'*`phat_D1_CM')
+	
+	foreach w in `w_11' `w_00' `w_01' {
+		qui centile `w' if `w'!=., c(1 99) 
+		qui replace `w'=r(c_1) if `w'<r(c_1) & `w'!=.
+		qui replace `w'=r(c_2) if `w'>r(c_2) & `w'!=.
+	}
 	
 	tempvar u_00_regressand u_11_regressand u_01_regressand
 	
@@ -250,7 +257,7 @@ program define mrvent, rclass
 	centile `ipw_X_w_01' if `ipw_X_w_01'!=. & att22==1, c(1 99) 
 	replace `ipw_X_w_01'=r(c_1) if `ipw_X_w_01'<r(c_1) & `ipw_X_w_01'!=. & att22==1
 	replace `ipw_X_w_01'=r(c_2) if `ipw_X_w_01'>r(c_2) & `ipw_X_w_01'!=. & att22==1
-		
+	
 	tempvar psi11_summand
 	gen double `psi11_summand' = `ipw_X_w_11'*(std_cesd_age40 - `mu1_CML') ///
 		+ `ipw_D1'*(`u_11_CL' - (`u_11_CL0'*`phat_L0_CD1' + `u_11_CL1'*`phat_L1_CD1')) ///
@@ -280,7 +287,7 @@ program define mrvent, rclass
 		
 end mrvent
 
-//parametric MR estimates of interventional effects
+//parametric multiply robust estimates of interventional effects
 qui bootstrap ///
 	OE=(r(psi11)-r(psi00)) ///
 	IDE=(r(psi01)-r(psi00)) ///
@@ -289,13 +296,12 @@ qui bootstrap ///
 
 estat bootstrap, p noheader
 
-/**********************************************
-define DML estimator for interventional effects
-***********************************************/
+//define DML estimator for interventional effects
+
 //note that stata does not currently support use of a superLearner
 //we therefore implement the DML estimator using only random forests
 
-*ssc install rforest //install rforest module if not already installed
+ssc install rforest
 
 capture program drop dmlvent
 program define dmlvent, rclass
@@ -338,7 +344,7 @@ program define dmlvent, rclass
 
 		qui rforest att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(class) iter(200) lsize(40) seed(60637)
+			if `kpart'!=`k', type(class) iter(200) lsize(20) seed(60637)
 
 		tempvar	xxphat_D0_C xxphat_D1_C xxphat_D_C
 		qui predict `xxphat_D0_C' `xxphat_D1_C', pr
@@ -360,7 +366,7 @@ program define dmlvent, rclass
 
 		qui rforest ever_unemp_age3539 att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(class) iter(200) lsize(40) seed(60637)		
+			if `kpart'!=`k', type(class) iter(200) lsize(20) seed(60637)		
 
 		tempvar xxphat_L0_CD xxphat_L1_CD xxphat_L_CD
 		qui predict `xxphat_L0_CD' `xxphat_L1_CD', pr
@@ -469,7 +475,13 @@ program define dmlvent, rclass
 		qui replace `w_11' = `xxw_11' if `kpart'==`k'
 		qui replace `w_00' = `xxw_00' if `kpart'==`k'
 		qui replace `w_01' = `xxw_01' if `kpart'==`k'
-			
+		
+		foreach w in `w_11' `w_00' `w_01' {
+			qui centile `w' if `w'!=., c(1 99) 
+			qui replace `w'=r(c_1) if `w'<r(c_1) & `w'!=.
+			qui replace `w'=r(c_2) if `w'>r(c_2) & `w'!=.
+		}
+	
 		tempvar u_00_regressand u_11_regressand u_01_regressand
 		qui gen double `u_00_regressand' = `xxmu0_CML'*`xxw_00' if `kpart'!=`k'
 		qui gen double `u_11_regressand' = `xxmu1_CML'*`xxw_11' if `kpart'!=`k'
@@ -658,7 +670,12 @@ program define dmlvent, rclass
 		
 end dmlvent
 
-//DML estimates of interventional effects
+//compute DML estimates of interventional effects 
 dmlvent
 
 log close
+
+//note the estimates differ from those reported in the text, which are 
+//based on the R implementation. This is due to differences in how the 
+//weights are censored and to the use of random forests exclusively rather 
+//than a super learner in the DML estimators.
