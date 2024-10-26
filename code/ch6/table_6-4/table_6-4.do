@@ -51,9 +51,10 @@ mat list e(b)
 mat list e(ci_percentile)
 
 //compute DML (type mr2) estimates of path-specific effects
-dmlpath $Y $M1 $M2, model(lasso) dvar($D) d(1) dstar(0) cvars($C) censor(1 99)
+dmlpath $Y $M1 $M2, model(lasso) dvar($D) d(1) dstar(0) cvars($C) ///
+	censor(1 99) seed(60637)
 
 log close
 
 //note the estimates differ slightly from those reported in
-//the text, which are based on the R implementation.
+//the text, which are based on the R implementation
