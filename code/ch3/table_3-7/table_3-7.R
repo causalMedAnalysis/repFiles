@@ -291,7 +291,8 @@ out_ipw <- ipwmed(
 #  IPW CDE ESTIMATOR  #
 #---------------------#
 # The IPW CDE estimator function ipwcde() only supports binary exposures and 
-# mediators.
+# mediators. But the job_seek mediator is not binary. We will create a custom 
+# IPW CDE function here, treating the mediator as pseudo-continuous.
 
 
 # Define inner custom IPW function
