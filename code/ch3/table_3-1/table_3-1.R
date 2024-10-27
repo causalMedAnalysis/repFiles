@@ -115,6 +115,12 @@ nlsy |>
   summarize(.groups = "drop",
     mean = round(mean(std_cesd_age40),2),
     n = n()
+  ) |>
+  pivot_wider(
+    names_from = momcol,
+    names_prefix = "C",
+    names_vary = "slowest",
+    values_from = c(mean, n)
   )
 
 
