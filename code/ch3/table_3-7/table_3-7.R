@@ -269,21 +269,6 @@ out_ipw <- ipwmed(
   # variance (even if you specify the same seed).
 )
 
-# Estimate CDE(1,0,0)
-# out_ipw_cde <- ipwcde(
-#   data = jobs,
-#   D = D,
-#   M = M,
-#   Y = Y,
-#   formula_D_string = formula1_D_string,
-#   formula_M_string = formula_M_string,
-#   boot = TRUE,
-#   boot_reps = n_reps,
-#   boot_seed = 3308004,
-#   boot_parallel = TRUE
-#   # ^ See note above about parallelizing the bootstrap.
-# )
-
 
 
 
