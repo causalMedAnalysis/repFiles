@@ -1,115 +1,294 @@
-###Table 4.2###
+# Preliminaries
+chapter <- "ch4"
+title <- "table_4-2"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr", "devtools")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-#install.packages(packages)
+# Script:      .../code/ch4/table_4-2.R
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R
 
-#install_github("xiangzhou09/rwrmed")
-library(rwrmed)
+# Outputs:     .../code/ch4/_LOGS/table_4-2_log.txt
 
-##office
-datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch4/_LOGS/"
+# Description: Replicates Chapter 4, Table 4.2: Interventional Effects of 
+#              College Attendance on CES-D Scores as Estimated from the NLSY 
+#              Using Regression-with-Residuals.
+#-------------------------------------------------------------------------------
 
-##home
-#datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch4/_LOGS/"
 
-##input data
-nlsy <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(tidyverse)
+library(haven)
 
-nlsy <- nlsy[complete.cases(nlsy[,c("cesd_age40", "ever_unemp_age3539", "faminc_adj_age3539", "log_faminc_adj_age3539", 
-	"att22", "female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")]),]
 
-nlsy$std_cesd_age40 <- (nlsy$cesd_age40-mean(nlsy$cesd_age40))/sd(nlsy$cesd_age40)
 
-##RWR estimators
 
-#OEhat^rwr, IDEhat^rwr, IIEhat^rwr, CDEhat^rwr
-Lmodel <- lm(ever_unemp_age3539 ~ att22 + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3, data=nlsy)
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# utilities
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+# regression-with-residuals estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/rwrlite.R")
+# ^ Note that rwrlite() is a wrapper for two functions from the rwrmed package. 
+# It requires that you have installed rwrmed. (But you do not need to load the 
+# rwrmed package beforehand, with the library function.)
 
-Mform <- faminc_adj_age3539 ~ att22 + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3
 
-Yform <- std_cesd_age40 ~ (faminc_adj_age3539 * att22) + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3 + ever_unemp_age3539
 
-rwr <- rwrmed(
-	treatment="att22", 
-	pre_cov=c("female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3"), 
-	zmodels=list(Lmodel),
-	m_form=Mform,
-	y_form=Yform,
-	data=nlsy)
 
-rwr.decomp <- decomp(rwr, a0=0, a1=1, m=50000, bootstrap=F)
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
 
-rwr.est <- data.frame(est = c(rwr.decomp$twocomp[,1], rwr.decomp$fourcomp[1,1]))
+# exposure
+D <- "att22"
 
-rownames(rwr.est)<-c("IDE", "IIE", "OE", "CDE")
+# mediator
+M <- "faminc_adj_age3539"
+ln_M <- "log_faminc_adj_age3539"
 
-#OEhat^rwr, IDEhat^rwr, IIEhat^rwr, CDEhat^rwr w/ log(income)
+# exposure-induced confounder
+L <- "ever_unemp_age3539"
 
-Lmodel <- lm(ever_unemp_age3539 ~ att22 + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3, data=nlsy)
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
 
-Mform <- log_faminc_adj_age3539 ~ att22 + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  M,
+  L,
+  C
+)
 
-Yform <- std_cesd_age40 ~ (log_faminc_adj_age3539 * att22) + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3 + ever_unemp_age3539
+# mediator value for CDE
+m <- 5e4
+ln_m <- log(m)
 
-rwr.ln <- rwrmed(
-	treatment="att22", 
-	pre_cov=c("female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3"), 
-	zmodels=list(Lmodel),
-	m_form=Mform,
-	y_form=Yform,
-	data=nlsy)
 
-rwr.ln.decomp <- decomp(rwr.ln, a0=0, a1=1, m=10.82, bootstrap=F)
 
-rwr.ln.est <- data.frame(est = c(rwr.ln.decomp$twocomp[,1], rwr.ln.decomp$fourcomp[1,1]))
 
-rownames(rwr.ln.est)<-c("IDE", "IIE", "OE", "CDE")
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+nlsy_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+)
 
-#OEhat^rwr+, IDEhat^rwr+, IIEhat^rwr+, CDEhat^rwr+ w/ log(income)
+nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
 
-Lmodel <- lm(ever_unemp_age3539 ~ att22 * (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3), data=nlsy)
 
-Mform <- log_faminc_adj_age3539 ~ att22 * (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3)
 
-Yform <- std_cesd_age40 ~ (log_faminc_adj_age3539 * att22) + 
-	(female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3) * 
-	(log_faminc_adj_age3539 + att22) + (ever_unemp_age3539 * log_faminc_adj_age3539)
 
-rwr.ln.x <- rwrmed(
-	treatment="att22", 
-	pre_cov=c("female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3"), 
-	zmodels=list(Lmodel),
-	m_form=Mform,
-	y_form=Yform,
-	data=nlsy)
+#-------------#
+#  VERSION 1  #
+#-------------#
+# RWR with D x M interaction
 
-rwr.ln.x.decomp <- decomp(rwr.ln.x, a0=0, a1=1, m=10.82, bootstrap=F)
+# L and M model formulae
+predictors1_LM <- paste(c(D,C), collapse = " + ")
+(formula1_L_string <- paste(L, "~", predictors1_LM))
+(formula1_M_string <- paste(M, "~", predictors1_LM))
+formula1_L <- as.formula(formula1_L_string)
+formula1_M <- as.formula(formula1_M_string)
 
-rwr.ln.x.est <- data.frame(est = c(rwr.ln.x.decomp$twocomp[,1], rwr.ln.x.decomp$fourcomp[1,1]))
+# Y model formula
+## main effects
+predictors1_Y <- paste(c(D,M,L,C), collapse = " + ")
+## D x M interaction
+predictors1_Y <- paste(
+  predictors1_Y,
+  "+",
+  paste(D, M, sep = ":", collapse = " + ")
+)
+## full formula
+(formula1_Y_string <- paste(Y, "~", predictors1_Y))
+formula1_Y <- as.formula(formula1_Y_string)
 
-rownames(rwr.ln.x.est)<-c("IDE", "IIE", "OE", "CDE")
+# Estimate effects
+out1 <- rwrlite(
+  data = nlsy,
+  D = D,
+  C = C,
+  m = m,
+  Y_formula = formula1_Y,
+  M_formula = formula1_M,
+  L_formula_list = list(formula1_L)
+)
 
-##print output
-sink(paste(logdir, "table_4-2_log.txt", sep=""))
 
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("RWR w/ DxM Interaction\n")
-print(rwr.est)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("RWR w/ ln(M) and Dxln(M) Interaction\n")
-print(rwr.ln.est)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("RWR w/ ln(M) and All Two-way Interactions\n")
-print(rwr.ln.x.est)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
 
+
+#-------------#
+#  VERSION 2  #
+#-------------#
+# RWR with ln(M) and D x ln(M) interaction
+
+# L and M model formulae
+(formula2_M_string <- paste(ln_M, "~", predictors1_LM))
+formula2_L <- formula1_L
+formula2_M <- as.formula(formula2_M_string)
+
+# Y model formula
+## main effects
+predictors2_Y <- paste(c(D,ln_M,L,C), collapse = " + ")
+## D x M interaction
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(D, ln_M, sep = ":", collapse = " + ")
+)
+## full formula
+(formula2_Y_string <- paste(Y, "~", predictors2_Y))
+formula2_Y <- as.formula(formula2_Y_string)
+
+# Estimate effects
+out2 <- rwrlite(
+  data = nlsy,
+  D = D,
+  C = C,
+  m = ln_m,
+  Y_formula = formula2_Y,
+  M_formula = formula2_M,
+  L_formula_list = list(formula2_L)
+)
+
+
+
+
+#-------------#
+#  VERSION 3  #
+#-------------#
+# RWR with ln(M) and two-way interactions
+# L model:     With D x C interactions
+# ln(M) model: With D x C interactions
+# Y model:     With D x ln(M), D x C, ln(M) x C, ln(M) x L interactions
+
+# L and M model formulae
+## main effects
+predictors3_LM <- paste(c(D,C), collapse = " + ")
+## D x C interactions
+predictors3_LM <- paste(
+  predictors3_LM,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## full formula
+(formula3_L_string <- paste(L, "~", predictors3_LM))
+(formula3_M_string <- paste(ln_M, "~", predictors3_LM))
+formula3_L <- as.formula(formula3_L_string)
+formula3_M <- as.formula(formula3_M_string)
+
+# Y model formula
+## main effects
+predictors3_Y <- paste(c(D,ln_M,L,C), collapse = " + ")
+## D x ln(M) interaction
+predictors3_Y <- paste(
+  predictors3_Y,
+  "+",
+  paste(D, ln_M, sep = ":", collapse = " + ")
+)
+## D x C interactions
+predictors3_Y <- paste(
+  predictors3_Y,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## ln(M) x C interactions
+predictors3_Y <- paste(
+  predictors3_Y,
+  "+",
+  paste(ln_M, C, sep = ":", collapse = " + ")
+)
+## ln(M) x L interaction
+predictors3_Y <- paste(
+  predictors3_Y,
+  "+",
+  paste(ln_M, L, sep = ":", collapse = " + ")
+)
+## full formula
+(formula3_Y_string <- paste(Y, "~", predictors3_Y))
+formula3_Y <- as.formula(formula3_Y_string)
+
+# Estimate effects
+out3 <- rwrlite(
+  data = nlsy,
+  D = D,
+  C = C,
+  m = ln_m,
+  Y_formula = formula3_Y,
+  M_formula = formula3_M,
+  L_formula_list = list(formula3_L)
+)
+
+
+
+
+#---------------------#
+#  COLLATE ESTIMATES  #
+#---------------------#
+master <- data.frame(
+  param = c("OE(1,0)", "IDE(1,0)", "IIE(1,0)", "CDE(1,0,50K)"),
+  est_v1 = c(
+    out1$OE,
+    out1$IDE,
+    out1$IIE,
+    out1$CDE
+  ),
+  est_v2 = c(
+    out2$OE,
+    out2$IDE,
+    out2$IIE,
+    out2$CDE
+  ),
+  est_v3 = c(
+    out3$OE,
+    out3$IDE,
+    out3$IIE,
+    out3$CDE
+  )
+)
+
+master |>
+  mutate(
+    across(
+      .cols = starts_with("est_"),
+      .fns = \(x) round(x, 3)
+    )
+  )
+
+
+# Close log
 sink()
+
