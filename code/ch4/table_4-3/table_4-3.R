@@ -1,142 +1,299 @@
-###Table 4.3###
+# Preliminaries
+chapter <- "ch4"
+title <- "table_4-3"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-#install.packages(packages)
+# Script:      .../code/ch4/table_4-3.R
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
 
-##office
-datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch4/_LOGS/"
+# Outputs:     .../code/ch4/_LOGS/table_4-3_log.txt
 
-##home
-#datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch4/_LOGS/"
+# Description: Replicates Chapter 4, Table 4.3: Interventional Effects of 
+#              College Attendance on CES-D Scores as Estimated from the NLSY 
+#              Using the Simulation Approach.
+#-------------------------------------------------------------------------------
 
-set.seed(3308004)
 
-##input data 
-nlsy <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(tidyverse)
+library(haven)
 
-nlsy <- nlsy[complete.cases(nlsy[,c("cesd_age40", "ever_unemp_age3539", "faminc_adj_age3539", "log_faminc_adj_age3539", 
-	"att22", "female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")]),]
 
-nlsy$std_cesd_age40 <- (nlsy$cesd_age40-mean(nlsy$cesd_age40))/sd(nlsy$cesd_age40)
 
-##simulation estimators
 
-#define estimation function 
-medsim <- function(data, num.sim=100, Lform, Mform, Yform) {
-	
-	df <- data
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# simulation estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/medsim.R")
 
-	Lmodel <- glm(Lform, data=df, family=binomial("logit"))
-  
-	Mmodel <- lm(Mform, data=df)
 
-	Ymodel <- lm(Yform, data=df)
 
-	idata <- df
 
-	Y0L0M0 <- Y1L1M1 <- Y1L1M0 <- Y0L0m <- Y1L1m <- numeric(num.sim)
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
 
-	for (i in 1:num.sim) {
+# exposure
+D <- "att22"
 
-		idata$att22 <- 0
+# mediator
+M <- "log_faminc_adj_age3539"
 
-		phat_L0 <- predict(Lmodel, newdata=idata, type="response")
-		yhat_M0 <- predict(Mmodel, newdata=idata, type="response")
+# exposure-induced confounder
+L <- "ever_unemp_age3539"
 
-		L0 <- rbinom(nrow(idata), size=1, prob=phat_L0)
-		M0 <- rnorm(nrow(idata), yhat_M0, sd=sigma(Mmodel))
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
 
-		idata$att22 <- 1
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  M,
+  L,
+  C
+)
 
-		phat_L1 <- predict(Lmodel, newdata=idata, type="response")
-		yhat_M1 <- predict(Mmodel, newdata=idata, type="response")
+# mediator value for CDE
+m <- log(5e4)
 
-		L1 <- rbinom(nrow(idata), size=1, prob=phat_L1)
-		M1 <- rnorm(nrow(idata), yhat_M1, sd=sigma(Mmodel))
+# number of simulations
+n_sims <- 2000
 
-		idata$ever_unemp_age3539 <- L1
-		idata$log_faminc_adj_age3539 <- M1
 
-		yhat_Y1L1M1 <- predict(Ymodel, newdata=idata, type="response")
-		Y1L1M1[i] <- mean(rnorm(nrow(idata), yhat_Y1L1M1, sd=sigma(Ymodel)))
 
-		idata$log_faminc_adj_age3539 <- M0
 
-		yhat_Y1L1M0 <- predict(Ymodel, newdata=idata, type="response")
-		Y1L1M0[i] <- mean(rnorm(nrow(idata), yhat_Y1L1M0, sd=sigma(Ymodel)))
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+nlsy_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+)
 
-		idata$att22 <- 0
-		idata$ever_unemp_age3539 <- L0
+nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
 
-		yhat_Y0L0M0 <- predict(Ymodel, newdata=idata, type="response")
-		Y0L0M0[i] <- mean(rnorm(nrow(idata), yhat_Y0L0M0, sd=sigma(Ymodel)))
 
-		idata$log_faminc_adj_age3539 <- log(50000)
 
-		yhat_Y0L0m <- predict(Ymodel, newdata=idata, type="response")
-		Y0L0m[i] <- mean(rnorm(nrow(idata), yhat_Y0L0m, sd=sigma(Ymodel)))
 
-		idata$att22 <- 1
-		idata$ever_unemp_age3539 <- L1
+#-------------#
+#  VERSION 1  #
+#-------------#
+# L model: Additive logit model
+# M model: Additive linear model
+# Y model: Linear model with D x M interaction
 
-		yhat_Y1L1m <- predict(Ymodel, newdata=idata, type="response")
-		Y1L1m[i] <- mean(rnorm(nrow(idata), yhat_Y1L1m, sd=sigma(Ymodel)))
-		}
+# L and M model formulae
+predictors1_LM <- paste(c(D,C), collapse = " + ")
+(formula1_L_string <- paste(L, "~", predictors1_LM))
+(formula1_M_string <- paste(M, "~", predictors1_LM))
 
-	OE <- mean(Y1L1M1) - mean(Y0L0M0)
-	IDE <- mean(Y1L1M0) - mean(Y0L0M0)  
-	IIE <- mean(Y1L1M1) - mean(Y1L1M0)
-	CDE <- mean(Y1L1m) - mean(Y0L0m)
+# Y model formula
+## main effects
+predictors1_Y <- paste(c(D,M,L,C), collapse = " + ")
+## D x M interaction
+predictors1_Y <- paste(
+  predictors1_Y,
+  "+",
+  paste(D, M, sep = ":", collapse = " + ")
+)
+## full formula
+(formula1_Y_string <- paste(Y, "~", predictors1_Y))
 
-	point.est <- list(OE, IDE, IIE, CDE)
+# Define model specifications
+out1_specs <- list(
+  ## L model
+  list(
+    func = "glm",
+    formula = as.formula(formula1_L_string),
+    args = list(family = "binomial")
+  ),
+  ## M model
+  list(
+    func = "lm",
+    formula = as.formula(formula1_M_string)
+  ),
+  ## Y model
+  list(
+    func = "lm",
+    formula = as.formula(formula1_Y_string)
+  )
+)
 
-	return(point.est)
-	}
+# Estimate interventional effects
+out1 <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = M,
+  model_spec = out1_specs,
+  seed = 3308004
+)
 
-#compute simulation estimates w/ exposure-mediator interaction
-Lform.x <- ever_unemp_age3539 ~ att22 + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3
+# Estimate CDE(1,0,ln(50K))
+out1_cde <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = paste0(M,"=m"),
+  model_spec = out1_specs,
+  seed = 3308004
+)
 
-Mform.x <- log_faminc_adj_age3539 ~ att22 + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3
 
-Yform.x <- std_cesd_age40~(log_faminc_adj_age3539 * att22) + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3 + ever_unemp_age3539
 
-medsim.est.x <- medsim(data=nlsy, num.sim=2000, Lform=Lform.x, Mform=Mform.x, Yform=Yform.x)
 
-#compute simulation estimates w/ all two-way interactions
-Lform.xx <- ever_unemp_age3539 ~ att22 * (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3)
+#-------------#
+#  VERSION 2  #
+#-------------#
+# L model: Logit model with D x C interactions
+# M model: Linear model with D x C interactions
+# Y model: Linear model with D x M, D x C, M x C, M x L interactions
 
-Mform.xx <- log_faminc_adj_age3539 ~ att22 * (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3)
+# L and M model formulae
+## main effects
+predictors2_LM <- paste(c(D,C), collapse = " + ")
+## D x C interactions
+predictors2_LM <- paste(
+  predictors2_LM,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## full formula
+(formula2_L_string <- paste(L, "~", predictors2_LM))
+(formula2_M_string <- paste(M, "~", predictors2_LM))
 
-Yform.xx <- std_cesd_age40 ~ (log_faminc_adj_age3539 * att22) + 
-	(female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3) * 
-	(log_faminc_adj_age3539 + att22) + (ever_unemp_age3539 * log_faminc_adj_age3539)
+# Y model formula
+## main effects
+predictors2_Y <- paste(c(D,M,L,C), collapse = " + ")
+## D x M interaction
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(D, M, sep = ":", collapse = " + ")
+)
+## D x C interactions
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## M x C interactions
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(M, C, sep = ":", collapse = " + ")
+)
+## M x L interaction
+predictors2_Y <- paste(
+  predictors2_Y,
+  "+",
+  paste(M, L, sep = ":", collapse = " + ")
+)
+## full formula
+(formula2_Y_string <- paste(Y, "~", predictors2_Y))
 
-medsim.est.xx <- medsim(data=nlsy, num.sim=2000, Lform=Lform.xx, Mform=Mform.xx, Yform=Yform.xx)
+# Define model specifications
+out2_specs <- list(
+  ## L model
+  list(
+    func = "glm",
+    formula = as.formula(formula2_L_string),
+    args = list(family = "binomial")
+  ),
+  ## M model
+  list(
+    func = "lm",
+    formula = as.formula(formula2_M_string)
+  ),
+  ## Y model
+  list(
+    func = "lm",
+    formula = as.formula(formula2_Y_string)
+  )
+)
 
-#print output
-medsim.est.x <- matrix(unlist(medsim.est.x), ncol=4, byrow=TRUE)
-medsim.est.xx <- matrix(unlist(medsim.est.xx), ncol=4, byrow=TRUE)
+# Estimate interventional effects
+out2 <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = M,
+  model_spec = out2_specs,
+  seed = 3308004
+)
 
-medsim.x.out <- data.frame(est = round(c(medsim.est.x), digits=3), row.names=c("OEhat^sim", "IDEhat^sim", "IIEhat^sim", "CDEhat^sim"))
-medsim.xx.out <- data.frame(est = round(c(medsim.est.xx), digits=3), row.names=c("OEhat^sim", "IDEhat^sim", "IIEhat^sim", "CDEhat^sim"))
+# Estimate CDE(1,0,ln(50K))
+out2_cde <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = paste0(M,"=m"),
+  model_spec = out2_specs,
+  seed = 3308004
+)
 
-sink(paste(logdir, "table_4-3_log.txt", sep=""))
 
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("simEst w/ ln(M) and ln(M)xD Interaction\n")
-print(medsim.x.out)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("simEst w/ ln(M) and All Two-way Interactions\n")
-print(medsim.xx.out)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
 
+
+#---------------------#
+#  COLLATE ESTIMATES  #
+#---------------------#
+master <- data.frame(
+  param = c("OE(1,0)", "IDE(1,0)", "IIE(1,0)", "CDE(1,0,ln(50K))"),
+  est_v1 = c(
+    out1$OE,
+    out1$IDE,
+    out1$IIE,
+    out1_cde$CDE
+  ),
+  est_v2 = c(
+    out2$OE,
+    out2$IDE,
+    out2$IIE,
+    out2_cde$CDE
+  )
+)
+
+master |>
+  mutate(
+    across(
+      .cols = starts_with("est_"),
+      .fns = \(x) round(x, 3)
+    )
+  )
+
+
+# Close log
 sink()
+
