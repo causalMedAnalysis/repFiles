@@ -100,8 +100,7 @@ m <- log(5e4)
 n_sims <- 2000
 
 # number of bootstrap replications
-#n_reps <- 2000
-n_reps <- 5
+n_reps <- 2000
 
 
 
