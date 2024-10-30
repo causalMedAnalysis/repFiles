@@ -1,463 +1,358 @@
-###Table 4.5###
+# Preliminaries
+chapter <- "ch4"
+title <- "table_4-5"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("dplyr", "tidyr", "devtools", "doParallel", "doRNG")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-#install.packages(packages)
+# Script:      .../code/ch4/table_4-5.R
 
-for (package.i in packages) {
-	suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-	}
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwvent.R
 
-#install_github("xiangzhou09/rwrmed")
-library(rwrmed)
+# Outputs:     .../code/ch4/_LOGS/table_4-5_log.txt
 
-nboot <- 2000
-ncores <- parallel::detectCores()-2
+# Description: Replicates Chapter 4, Table 4.5: Bootstrap Inferential Statistics 
+#              for the Interventional Effects of College Attendance on CES-D 
+#              Scores Computed from the NLSY.
+#-------------------------------------------------------------------------------
 
-##office
-datadir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/data/" 
-logdir <- "C:/Users/Geoffrey Wodtke/Dropbox/shared/causal_mediation_text/code/ch4/_LOGS/"
 
-##home
-#datadir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/data/" 
-#logdir <- "C:/Users/Geoff/Dropbox/shared/causal_mediation_text/code/ch4/_LOGS/"
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(tidyverse)
+library(haven)
 
-set.seed(60657)
 
-##input data
-nlsy <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
 
-nlsy <- nlsy[complete.cases(nlsy[,c("cesd_age40", "ever_unemp_age3539", "faminc_adj_age3539", "log_faminc_adj_age3539", 
-	"att22", "female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")]),]
 
-nlsy$std_cesd_age40 <- (nlsy$cesd_age40-mean(nlsy$cesd_age40))/sd(nlsy$cesd_age40)
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# utilities
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+# RWR estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/rwrlite.R")
+# simulation estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
+source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/medsim.R")
+# IPW estimator
+#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwvent.R")
+#source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/ipwvent.R")
 
-##RWR estimates
 
-#specify form of models for L, M, and Y
-Lmodel.x <- lm(ever_unemp_age3539~att22*(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3), data=nlsy)
 
-Mform.x <- log_faminc_adj_age3539~att22*(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3)
 
-Yform.x <- std_cesd_age40~(log_faminc_adj_age3539*att22)+(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3)*(log_faminc_adj_age3539+att22)+(ever_unemp_age3539*log_faminc_adj_age3539)
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
 
-#fit RWR models
-rwr.fit <- rwrmed(
-	treatment="att22", 
-	pre_cov=c("female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3"), 
-	zmodels=list(Lmodel.x),
-	m_form=Mform.x,
-	y_form=Yform.x,
-	data=nlsy)
+# exposure
+D <- "att22"
 
-#compute point estimates 
-rwr.decomp <- decomp(rwr.fit, a0=0, a1=1, m=log(50000), bootstrap=F)
+# mediator
+M <- "log_faminc_adj_age3539"
 
-#setup parallel computing cluster
-my.cluster <- parallel::makeCluster(ncores, type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-clusterExport(cl=my.cluster, list("Lmodel.x", "Mform.x", "Yform.x"), envir=environment())
-clusterEvalQ(cl=my.cluster, library(rwrmed))
-registerDoRNG(3308004)
+# exposure-induced confounder
+L <- "ever_unemp_age3539"
 
-#compute bootstrap estimates
-rwrmed.boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
 
-	boot.data <- nlsy[sample(nrow(nlsy), nrow(nlsy), replace=TRUE),]
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  M,
+  L,
+  C
+)
 
-	Lmodel.boot <- lm(ever_unemp_age3539~att22*(female+black+hispan+paredu+parprof+parinc_prank+famsize+afqt3), data=boot.data)
+# mediator value for CDE
+m <- log(5e4)
 
-	boot.rwr.fit <- rwrmed(
-				treatment="att22", 
-				pre_cov=c("female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3"), 
-				zmodels=list(Lmodel.boot),
-				m_form=Mform.x,
-				y_form=Yform.x,
-				data=boot.data)
+# number of simulations for simulation estimator
+n_sims <- 2000
 
-	boot.rwr.decomp <- decomp(boot.rwr.fit, a0=0, a1=1, m=log(50000), bootstrap=F)
+# number of bootstrap replications
+#n_reps <- 2000
+n_reps <- 5
 
-	IDE <- boot.rwr.decomp$twocomp[1,1]
-	IIE <- boot.rwr.decomp$twocomp[2,1]
-	OE <- boot.rwr.decomp$twocomp[3,1]
-	CDE <- boot.rwr.decomp$fourcomp[1,1]
 
-	return(list(IDE, IIE, OE, CDE))
-	}
 
-stopCluster(my.cluster)
-rm(my.cluster)
 
-rwrmed.boot <- matrix(unlist(rwrmed.boot), ncol=4, byrow=TRUE)
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+nlsy_raw <- read_stata(
+  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+)
 
-#compute 95% CIs
-rwr.output <- matrix(data=NA, nrow=4, ncol=4)
+nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
 
-rwr.output[,1] <- c(rwr.decomp$twocomp[,1], rwr.decomp$fourcomp[1,1])
 
-for (i in 1:nrow(rwr.output)) {
 
-	rwr.output[i,1] <- round(rwr.output[i,1], digits=3)
 
-	rwr.output[i,2] <- round(quantile(rwrmed.boot[,i], prob=0.025), digits=3)
-	rwr.output[i,3] <- round(quantile(rwrmed.boot[,i], prob=0.975), digits=3)
-	}
+#------------------#
+#  MODEL FORMULAE  #
+#------------------#
+# L model: With D x C interactions
+# M model: With D x C interactions
+# Y model: With D x M, D x C, M x C, M x L interactions
+# Note that M here is the log form
 
-#compute bootstrap pvalues for null of no effect
-IDE_null <- IIE_null <- OE_null <- CDE_null <- 0
+# L and M model formulae
+## main effects
+predictors_LM <- paste(c(D,C), collapse = " + ")
+## D x C interactions
+predictors_LM <- paste(
+  predictors_LM,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## full formula
+(formula_L_string <- paste(L, "~", predictors_LM))
+(formula_M_string <- paste(M, "~", predictors_LM))
+formula_L <- as.formula(formula_L_string)
+formula_M <- as.formula(formula_M_string)
 
-rwrmed.boot <- as.data.frame(rwrmed.boot)
+# Y model formula
+## main effects
+predictors_Y <- paste(c(D,M,L,C), collapse = " + ")
+## D x M interaction
+predictors_Y <- paste(
+  predictors_Y,
+  "+",
+  paste(D, M, sep = ":", collapse = " + ")
+)
+## D x C interactions
+predictors_Y <- paste(
+  predictors_Y,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## M x C interactions
+predictors_Y <- paste(
+  predictors_Y,
+  "+",
+  paste(M, C, sep = ":", collapse = " + ")
+)
+## M x L interaction
+predictors_Y <- paste(
+  predictors_Y,
+  "+",
+  paste(M, L, sep = ":", collapse = " + ")
+)
+## full formula
+(formula_Y_string <- paste(Y, "~", predictors_Y))
+formula_Y <- as.formula(formula_Y_string)
 
-rwrmed.boot <- 
-	rwrmed.boot %>% 
-		mutate(
-			IDEpval = 2*min(mean(ifelse(V1>IDE_null, 1, 0)), mean(ifelse(V1<IDE_null, 1, 0))),
-			IIEpval = 2*min(mean(ifelse(V2>IIE_null, 1, 0)), mean(ifelse(V2<IIE_null, 1, 0))),
-			OEpval = 2*min(mean(ifelse(V3>OE_null, 1, 0)), mean(ifelse(V3<OE_null, 1, 0))),
-			CDEpval = 2*min(mean(ifelse(V4>CDE_null, 1, 0)), mean(ifelse(V4<CDE_null, 1, 0))))
 
-for (i in 1:nrow(rwr.output)) {
-	rwr.output[i,4] <- round(rwrmed.boot[1,i+4], digits=3)
-	}
 
-rownames(rwr.output)<-c("IDE", "IIE", "OE", "CDE")
-colnames(rwr.output) <- c("point.est", "ll.95ci", "ul.95ci", "pval")
 
-##simulation estimates
+#-----------------#
+#  RWR ESTIMATOR  #
+#-----------------#
+out_rwr <- rwrlite(
+  data = nlsy,
+  D = D,
+  C = C,
+  m = m,
+  Y_formula = formula_Y,
+  M_formula = formula_M,
+  L_formula_list = list(formula_L),
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # have installed the following R packages: doParallel, doRNG, foreach.
+  # The rwrlite() function also requires that you have installed the rwrmed R 
+  # package.
+  # (You do not need to load any of these packages beforehand, with the library 
+  # function.)
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
+  # argument to FALSE), the results may differ slightly, due to simulation 
+  # variance (even if you specify the same seed).
+)
 
-#define function for simulation estimators
-medsim <- function(data, num.sim=2000, Lform, Mform, Yform) {
-	
-	df <- data
 
-	Lmodel <- glm(Lform, data=df, family=binomial("logit"))
+
+
+#------------------------#
+#  SIMULATION ESTIMATOR  #
+#------------------------#
+# Define model specifications
+out_sim_specs <- list(
+  ## L model
+  list(
+    func = "glm",
+    formula = formula_L,
+    args = list(family = "binomial")
+  ),
+  ## M model
+  list(
+    func = "lm",
+    formula = formula_M
+  ),
+  ## Y model
+  list(
+    func = "lm",
+    formula = formula_Y
+  )
+)
+
+# Estimate interventional effects
+out_sim <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = M,
+  model_spec = out_sim_specs,
+  boot = TRUE,
+  reps = n_reps,
+  seed = 3308004
+  # ^ Because of its resource intensity, running a non-parallelized bootstrap 
+  # of the simulation estimator is not advisable. Therefore, unlike the other 
+  # estimator functions, the parallelized bootstrap is the only implemented 
+  # bootstrap in the medsim() function. If you request a bootstrap (as in the 
+  # code above), you must have installed the following R packages: 
+  # doParallel, doRNG, foreach.
+  # (You do not need to load those packages beforehand, with the library 
+  # function.)
+)
+
+# Estimate CDE(1,0,ln(50K))
+out_sim_cde <- medsim(
+  data = nlsy,
+  num_sim = n_sims,
+  treatment = D,
+  intv_med = paste0(M,"=",m),
+  model_spec = out_sim_specs,
+  boot = TRUE,
+  reps = n_reps,
+  seed = 3308004
+)
+
+
+
+
+#-----------------#
+#  IPW ESTIMATOR  #
+#-----------------#
+# to do
+
+
+
+
+#-------------------#
+#  COLLATE RESULTS  #
+#-------------------#
+master <- data.frame(
+  param = c("OE(1,0)", "IDE(1,0)", "NIE(1,0)", "CDE(1,0,ln(50K))"),
   
-	Mmodel <- lm(Mform, data=df)
-
-	Ymodel <- lm(Yform, data=df)
-
-	idata <- df
-
-	Y0L0M0 <- Y1L1M1 <- Y1L1M0 <- Y0L0m <- Y1L1m <- numeric(num.sim)
-
-	for (i in 1:num.sim) {
-
-		idata$att22 <- 0
-
-		phat_L0 <- predict(Lmodel, newdata=idata, type="response")
-		yhat_M0 <- predict(Mmodel, newdata=idata, type="response")
-
-		L0 <- rbinom(nrow(idata), size=1, prob=phat_L0)
-		M0 <- rnorm(nrow(idata), yhat_M0, sd=sigma(Mmodel))
-
-		idata$att22 <- 1
-
-		phat_L1 <- predict(Lmodel, newdata=idata, type="response")
-		yhat_M1 <- predict(Mmodel, newdata=idata, type="response")
-
-		L1 <- rbinom(nrow(idata), size=1, prob=phat_L1)
-		M1 <- rnorm(nrow(idata), yhat_M1, sd=sigma(Mmodel))
-
-		idata$ever_unemp_age3539 <- L1
-		idata$log_faminc_adj_age3539 <- M1
-
-		yhat_Y1L1M1 <- predict(Ymodel, newdata=idata, type="response")
-		Y1L1M1[i] <- mean(rnorm(nrow(idata), yhat_Y1L1M1, sd=sigma(Ymodel)))
-
-		idata$log_faminc_adj_age3539 <- M0
-
-		yhat_Y1L1M0 <- predict(Ymodel, newdata=idata, type="response")
-		Y1L1M0[i] <- mean(rnorm(nrow(idata), yhat_Y1L1M0, sd=sigma(Ymodel)))
-
-		idata$att22 <- 0
-		idata$ever_unemp_age3539 <- L0
-
-		yhat_Y0L0M0 <- predict(Ymodel, newdata=idata, type="response")
-		Y0L0M0[i] <- mean(rnorm(nrow(idata), yhat_Y0L0M0, sd=sigma(Ymodel)))
-
-		idata$log_faminc_adj_age3539 <- log(50000)
-
-		yhat_Y0L0m <- predict(Ymodel, newdata=idata, type="response")
-		Y0L0m[i] <- mean(rnorm(nrow(idata), yhat_Y0L0m, sd=sigma(Ymodel)))
-
-		idata$att22 <- 1
-		idata$ever_unemp_age3539 <- L1
-
-		yhat_Y1L1m <- predict(Ymodel, newdata=idata, type="response")
-		Y1L1m[i] <- mean(rnorm(nrow(idata), yhat_Y1L1m, sd=sigma(Ymodel)))
-		}
-
-	IDE <- mean(Y1L1M0) - mean(Y0L0M0)  
-	IIE <- mean(Y1L1M1) - mean(Y1L1M0)
-	OE <- mean(Y1L1M1) - mean(Y0L0M0)
-	CDE <- mean(Y1L1m) - mean(Y0L0m)
-
-	point.est <- list(IDE, IIE, OE, CDE)
-
-	return(point.est)
-	}
-
-#specify form of models for L, M, and Y
-Lform.x <- ever_unemp_age3539 ~ att22 * (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3)
-
-Mform.x <- log_faminc_adj_age3539 ~ att22 * (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3)
-
-Yform.x <- std_cesd_age40 ~ (log_faminc_adj_age3539 * att22) + (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3) * (log_faminc_adj_age3539 + att22) + (ever_unemp_age3539 * log_faminc_adj_age3539)
-
-#compute point estimates
-medsim.est <- medsim(data=nlsy, num.sim=2000, Lform=Lform.x, Mform=Mform.x, Yform=Yform.x)
-medsim.est <- matrix(unlist(medsim.est), ncol=4, byrow=TRUE)
-
-#setup parallel computing cluster
-my.cluster <- parallel::makeCluster(ncores, type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-clusterExport(cl=my.cluster, list("medsim", "Lform.x", "Mform.x", "Yform.x"), envir=environment())
-registerDoRNG(3308004)
-
-#compute bootstrap estimates
-medsim.boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
-
-	boot.data <- nlsy[sample(nrow(nlsy), nrow(nlsy), replace=TRUE),]
-
-	boot.est <- medsim(boot.data, num.sim=2000, Lform=Lform.x, Mform=Mform.x, Yform=Yform.x)
-	
-	return(boot.est)
-	}
-
-stopCluster(my.cluster)
-rm(my.cluster)
-
-medsim.boot <- matrix(unlist(medsim.boot), ncol=4, byrow=TRUE)
-
-#compute 95% CIs
-medsim.output <- matrix(data=NA, nrow=4, ncol=4)
-
-for (i in 1:nrow(medsim.output)) {
-
-	medsim.output[i,1] <- round(medsim.est[i], digits=3)
-
-	medsim.output[i,2] <- round(quantile(medsim.boot[,i], prob=0.025), digits=3)
-	medsim.output[i,3] <- round(quantile(medsim.boot[,i], prob=0.975), digits=3)
-	}
-
-#compute bootstrap pvalues for null of no effect
-IDE_null <- IIE_null <- OE_null <- CDE_null <- 0
-
-medsim.boot <- as.data.frame(medsim.boot)
-
-medsim.boot <- 
-	medsim.boot %>% 
-		mutate(
-			IDEpval = 2*min(mean(ifelse(V1>IDE_null, 1, 0)), mean(ifelse(V1<IDE_null, 1, 0))),
-			IIEpval = 2*min(mean(ifelse(V2>IIE_null, 1, 0)), mean(ifelse(V2<IIE_null, 1, 0))),
-			OEpval = 2*min(mean(ifelse(V3>OE_null, 1, 0)), mean(ifelse(V3<OE_null, 1, 0))),
-			CDEpval = 2*min(mean(ifelse(V4>CDE_null, 1, 0)), mean(ifelse(V4<CDE_null, 1, 0))))
-
-for (i in 1:nrow(medsim.output)) {
-	medsim.output[i,4] <- round(medsim.boot[1,i+4], digits=3)
-	}
-
-medsim.output <- data.frame(medsim.output, row.names=c("IDE", "IIE", "OE", "CDE"))
-colnames(medsim.output) <- c("point.est", "ll.95ci", "ul.95ci", "pval")
-
-##ipw estimates
-
-##weighting estimators
-
-#define function for weighting estimators
-ipwmed <- function(data, Dform, Lform, Mform) {
-
-	df <- data
-
-	df$id <- 1:nrow(df)
-
-	Dmodel <- glm(Dform, data=df, family=binomial("logit"))
-
-	Lmodel <- glm(Lform, data=df, family=binomial("logit"))
+  # RWR
+  rwr_pvalue = c(
+    out_rwr$pvalue_OE,
+    out_rwr$pvalue_IDE,
+    out_rwr$pvalue_IIE,
+    out_rwr$pvalue_CDE
+  ),
+  rwr_ci_low = c(
+    out_rwr$ci_OE[1],
+    out_rwr$ci_IDE[1],
+    out_rwr$ci_IIE[1],
+    out_rwr$ci_CDE[1]
+  ),
+  rwr_ci_high = c(
+    out_rwr$ci_OE[2],
+    out_rwr$ci_IDE[2],
+    out_rwr$ci_IIE[2],
+    out_rwr$ci_CDE[2]
+  ),
   
-	Mmodel <- lm(Mform, data=df)
+  # simulation
+  sim_pvalue = c(
+    out_sim$pval[3],
+    out_sim$pval[1],
+    out_sim$pval[2],
+    out_sim_cde$pval[1]
+  ),
+  sim_ci_low = c(
+    out_sim$ll.95ci[3],
+    out_sim$ll.95ci[1],
+    out_sim$ll.95ci[2],
+    out_sim_cde$ll.95ci[1]
+  ),
+  sim_ci_high = c(
+    out_sim$ul.95ci[3],
+    out_sim$ul.95ci[1],
+    out_sim$ul.95ci[2],
+    out_sim_cde$ul.95ci[1]
+  ),
+  
+  # IPW
+  ipw_pvalue = c(
+    NA_real_,
+    NA_real_,
+    NA_real_,
+    NA_real_
+  ),
+  ipw_ci_low = c(
+    NA_real_,
+    NA_real_,
+    NA_real_,
+    NA_real_
+  ),
+  ipw_ci_high = c(
+    NA_real_,
+    NA_real_,
+    NA_real_,
+    NA_real_
+  )
+)
 
-	idataD0 <- df %>% mutate(att22 = 0)
-	idataD1 <- df %>% mutate(att22 = 1)
+width_curr <- getOption("width")
+options(width = 500)
+master |>
+  mutate(
+    across(
+      .cols = !param,
+      .fns = \(x) round(x, 3)
+    )
+  )
+options(width = width_curr)
 
-	idataD0L0 <- df %>% mutate(att22 = 0, ever_unemp_age3539 = 0)
-	idataD1L0 <- df %>% mutate(att22 = 1, ever_unemp_age3539 = 0)
-	idataD0L1 <- df %>% mutate(att22 = 0, ever_unemp_age3539 = 1)
-	idataD1L1 <- df %>% mutate(att22 = 1, ever_unemp_age3539 = 1)
 
-	phatD_C <- df %>% 
-		mutate(
-			pD1_C = predict(Dmodel, newdata=df, type = "response"),
-			pD0_C = 1-pD1_C,
-			pD1 = mean(att22),
-			pD0 = 1-pD1) %>%
-		select(id, pD1_C, pD0_C, pD1, pD0)
-
-	phatL_D1C <- idataD1 %>% 
-		mutate(
-			pL1_D1C = predict(Lmodel, newdata=idataD1, type = "response"),
-			pL0_D1C = 1-pL1_D1C) %>%
-		select(id, pL1_D1C, pL0_D1C)
-
-	phatL_D0C <- idataD0 %>% 
-		mutate(
-			pL1_D0C = predict(Lmodel, newdata=idataD0, type = "response"),
-			pL0_D0C = 1-pL1_D0C) %>%
-		select(id, pL1_D0C, pL0_D0C)
-
-	phatM_D <- df %>%
-		mutate(
-			pM_D1 = case_when(att22 == 1 ~ dnorm(log_faminc_adj_age3539, mean(df$log_faminc_adj_age3539[df$att==1]), sd=sd(df$log_faminc_adj_age3539-(mean(df$log_faminc_adj_age3539[df$att==1])*df$att22)-(mean(df$log_faminc_adj_age3539[df$att==0])*(1-df$att22))))),
-			pM_D0 = case_when(att22 == 0 ~ dnorm(log_faminc_adj_age3539, mean(df$log_faminc_adj_age3539[df$att==0]), sd=sd(df$log_faminc_adj_age3539-(mean(df$log_faminc_adj_age3539[df$att==1])*df$att22)-(mean(df$log_faminc_adj_age3539[df$att==0])*(1-df$att22)))))) %>%
-		select(id, pM_D1, pM_D0) 
-
-	phatM_D1LC <- idataD1 %>% 
-		mutate(
-			pM_D1LC = dnorm(log_faminc_adj_age3539, predict(Mmodel, newdata=idataD1, type = "response"), sd=sigma(Mmodel))) %>%
-		select(id, pM_D1LC)
-
-	phatM_D0LC <- idataD1 %>% 
-		mutate(pM_D0LC = dnorm(log_faminc_adj_age3539, predict(Mmodel, newdata=idataD0, type = "response"), sd=sigma(Mmodel))) %>%
-		select(id, pM_D0LC)
-
-	phatM_D0L0C <- idataD0L0 %>% 
-		mutate(pM_D0L0C = dnorm(log_faminc_adj_age3539, predict(Mmodel, newdata=idataD0L0, type = "response"), sd=sigma(Mmodel))) %>%
-		select(id, pM_D0L0C)
-
-	phatM_D1L0C <- idataD1L0 %>% 
-		mutate(pM_D1L0C = dnorm(log_faminc_adj_age3539, predict(Mmodel, newdata=idataD1L0, type = "response"), sd=sigma(Mmodel))) %>%
-		select(id, pM_D1L0C)
-
-	phatM_D0L1C <- idataD0L1 %>% 
-		mutate(pM_D0L1C = dnorm(log_faminc_adj_age3539, predict(Mmodel, newdata=idataD0L1, type = "response"), sd=sigma(Mmodel))) %>%
-		select(id, pM_D0L1C)
-
-	phatM_D1L1C <- idataD1L1 %>% 
-		mutate(pM_D1L1C = dnorm(log_faminc_adj_age3539, predict(Mmodel, newdata=idataD1L1, type = "response"), sd=sigma(Mmodel))) %>%
-		select(id, pM_D1L1C)
-
-	df.wts <- df %>%
-	    full_join(phatD_C, by = "id") %>%
-	    full_join(phatL_D1C, by = "id") %>%
-	    full_join(phatL_D0C, by = "id") %>%
-	    full_join(phatM_D, by = "id") %>%
-	    full_join(phatM_D1LC, by = "id") %>%
-	    full_join(phatM_D0LC, by = "id") %>%
-	    full_join(phatM_D0L0C, by = "id") %>%
-	    full_join(phatM_D1L0C, by = "id") %>%
-	    full_join(phatM_D0L1C, by = "id") %>%
-	    full_join(phatM_D1L1C, by = "id")
-
-	df.wts <- df.wts %>%
-		mutate(
-			sw1 = case_when(att22 == 0 ~ (pD0/pD0_C) * (1/pM_D0LC) * ((pM_D0L0C * pL0_D0C) + (pM_D0L1C * pL1_D0C))),
-			sw2 = case_when(att22 == 1 ~ (pD1/pD1_C) * (1/pM_D1LC) * ((pM_D1L0C * pL0_D1C) + (pM_D1L1C * pL1_D1C))),
-			sw3 = case_when(att22 == 1 ~ (pD1/pD1_C) * (1/pM_D1LC) * ((pM_D0L0C * pL0_D0C) + (pM_D0L1C * pL1_D0C))),
-			sw4 = case_when(
-				att22 == 1 ~ (pD1/pD1_C) * (pM_D1/pM_D1LC),
-				att22 == 0 ~ (pD0/pD0_C) * (pM_D0/pM_D0LC))) %>%
-		mutate(
-			across(c(sw1, sw2, sw3, sw4), 
-			~ifelse(. < quantile(., 0.01, na.rm = TRUE), quantile(., 0.01, na.rm = TRUE),
-                   ifelse(. > quantile(., 0.99, na.rm = TRUE), quantile(., 0.99, na.rm = TRUE), .))))
-
-	Ehat_Y0M0 <- weighted.mean(df.wts$std_cesd_age40[df.wts$att22==0], df.wts$sw1[df$att22==0])
-	Ehat_Y1M1 <- weighted.mean(df.wts$std_cesd_age40[df.wts$att22==1], df.wts$sw2[df$att22==1])
-	Ehat_Y1M0 <- weighted.mean(df.wts$std_cesd_age40[df.wts$att22==1], df.wts$sw3[df$att22==1])
-
-	IDE <- Ehat_Y1M0-Ehat_Y0M0
-	IIE <- Ehat_Y1M1-Ehat_Y1M0
-	OE <- Ehat_Y1M1-Ehat_Y0M0
-
-	Ymodel.wtd <- lm(std_cesd_age40 ~ att22 * log_faminc_adj_age3539, data=df.wts, weights=sw4)
-
-	CDE <- Ymodel.wtd$coefficients["att22"] + log(50000)*Ymodel.wtd$coefficients["att22:log_faminc_adj_age3539"]
-
-	##### NEED TO ADD CDE ESTIMATES #####
-
-	point.est <- list(IDE, IIE, OE, CDE)
-
-	return(point.est)
-	}
-
-#specify form of models for D, L, and M
-Dform.x <- att22 ~ female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3
-
-Lform.x <- ever_unemp_age3539 ~ att22 * (female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3)
-
-Mform.x <- log_faminc_adj_age3539 ~ att22 * (ever_unemp_age3539 + female + black + hispan + paredu + parprof + parinc_prank + famsize + afqt3)
-
-#compute point estimates
-ipwmed.est <- ipwmed(data=nlsy, Dform=Dform.x, Lform=Lform.x, Mform=Mform.x)
-ipwmed.est <- matrix(unlist(ipwmed.est), ncol=4, byrow=TRUE)
-
-#setup parallel computing cluster
-my.cluster <- parallel::makeCluster(ncores, type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-clusterExport(cl=my.cluster, list("medsim", "Lform.x", "Mform.x", "Yform.x"), envir=environment())
-clusterEvalQ(cl=my.cluster, library(dplyr))
-registerDoRNG(3308004)
-
-#compute bootstrap estimates
-ipwmed.boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
-
-	boot.data <- nlsy[sample(nrow(nlsy), nrow(nlsy), replace=TRUE),]
-
-	boot.est <- ipwmed(data=boot.data, Dform=Dform.x, Lform=Lform.x, Mform=Mform.x)
-	
-	return(boot.est)
-	}
-
-stopCluster(my.cluster)
-rm(my.cluster)
-
-ipwmed.boot <- matrix(unlist(ipwmed.boot), ncol=4, byrow=TRUE)
-
-#compute 95% CIs
-ipwmed.output <- matrix(data=NA, nrow=4, ncol=4)
-
-for (i in 1:nrow(ipwmed.output)) {
-
-	ipwmed.output[i,1] <- round(ipwmed.est[i], digits=3)
-
-	ipwmed.output[i,2] <- round(quantile(ipwmed.boot[,i], prob=0.025), digits=3)
-	ipwmed.output[i,3] <- round(quantile(ipwmed.boot[,i], prob=0.975), digits=3)
-	}
-
-#compute bootstrap pvalues for null of no effect
-IDE_null <- IIE_null <- OE_null <- CDE_null <- 0
-
-ipwmed.boot <- as.data.frame(ipwmed.boot)
-
-ipwmed.boot <- 
-	ipwmed.boot %>% 
-		mutate(
-			IDEpval = 2*min(mean(ifelse(V1>IDE_null, 1, 0)), mean(ifelse(V1<IDE_null, 1, 0))),
-			IIEpval = 2*min(mean(ifelse(V2>IIE_null, 1, 0)), mean(ifelse(V2<IIE_null, 1, 0))),
-			OEpval = 2*min(mean(ifelse(V3>OE_null, 1, 0)), mean(ifelse(V3<OE_null, 1, 0))),
-			CDEpval = 2*min(mean(ifelse(V4>CDE_null, 1, 0)), mean(ifelse(V4<CDE_null, 1, 0))))
-
-for (i in 1:nrow(ipwmed.output)) {
-	ipwmed.output[i,4] <- round(ipwmed.boot[1,i+4], digits=3)
-	}
-
-ipwmed.output <- data.frame(ipwmed.output, row.names=c("IDE", "IIE", "OE", "CDE"))
-colnames(ipwmed.output) <- c("point.est", "ll.95ci", "ul.95ci", "pval")
-
-##print output
-sink(paste(logdir, "table_4-5_log.txt", sep=""))
-
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("RWR Estimates\n")
-print(rwr.output)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("Simulation Estimates\n")
-print(medsim.output)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-cat("IPW Estimates\n")
-print(ipwmed.output)
-cat("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-
+# Close log
 sink()
+
