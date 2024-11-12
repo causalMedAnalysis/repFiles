@@ -26,6 +26,22 @@ sink(log_path, split = TRUE)
 #-------------------------------------------------------------------------------
 
 
+#------------------------#
+#  INSTALL DEPENDENCIES  #
+#------------------------#
+# The following packages are used to parallelize the bootstrap.
+dependencies <- c("doParallel", "doRNG", "foreach")
+
+#install.packages(dependencies)
+# ^ Uncomment this line above to install these packages.
+
+# And note that, once you have installed these packages, there is no need for 
+# you to load these packages with the library function to run the code in this 
+# script.
+
+
+
+
 #-------------#
 #  LIBRARIES  #
 #-------------#
@@ -39,8 +55,7 @@ library(haven)
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 # simulation estimator
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/medsim.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
 
 
 
@@ -94,8 +109,7 @@ n_sims <- 2000
 #  PREPARE DATA  #
 #----------------#
 nlsy_raw <- read_stata(
-  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
-  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
 )
 
 nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
