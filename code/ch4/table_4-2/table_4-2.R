@@ -26,6 +26,24 @@ sink(log_path, split = TRUE)
 #-------------------------------------------------------------------------------
 
 
+#------------------------#
+#  INSTALL DEPENDENCIES  #
+#------------------------#
+# This script uses the rwrmed R package, which is available to install from 
+# GitHub.
+# To install the package directly, you must first have installed the devtools 
+# package (which is available on CRAN).
+
+#install.packages("devtools")
+# ^ Uncomment this line above to install the devtools package, if you have not 
+# already done so.
+
+#devtools::install_github("xiangzhou09/rwrmed")
+# ^ Uncomment this line above to install the rwrmed package from GitHub.
+
+
+
+
 #-------------#
 #  LIBRARIES  #
 #-------------#
@@ -39,11 +57,9 @@ library(haven)
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 # utilities
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
 # regression-with-residuals estimator
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/rwrlite.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
 # ^ Note that rwrlite() is a wrapper for two functions from the rwrmed package. 
 # It requires that you have installed rwrmed. (But you do not need to load the 
 # rwrmed package beforehand, with the library function.)
@@ -99,8 +115,7 @@ ln_m <- log(m)
 #  PREPARE DATA  #
 #----------------#
 nlsy_raw <- read_stata(
-  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
-  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
 )
 
 nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
