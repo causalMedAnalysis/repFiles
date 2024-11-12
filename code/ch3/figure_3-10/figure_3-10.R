@@ -27,6 +27,18 @@ sink(log_path, split = TRUE)
 #-------------------------------------------------------------------------------
 
 
+#------------------------#
+#  INSTALL DEPENDENCIES  #
+#------------------------#
+# The following packages are used to create Figure 3-10.
+dependencies <- c("gridExtra", "metR")
+
+#install.packages(dependencies)
+# ^ Uncomment this line above to install these packages.
+
+
+
+
 #-------------#
 #  LIBRARIES  #
 #-------------#
@@ -42,11 +54,9 @@ library(haven)
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 # utilities
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
 # product-of-coefficients estimator, based on linear models
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/linmed.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
 
 
 
@@ -83,8 +93,7 @@ m <- 4
 #  PREPARE DATA  #
 #----------------#
 jobs_raw <- read_stata(
-  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta"
-  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/JOBSII/Jobs-NoMiss-Binary.dta"
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta"
 )
 
 jobs <- jobs_raw |>
