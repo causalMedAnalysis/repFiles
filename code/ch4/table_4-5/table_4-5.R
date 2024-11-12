@@ -19,7 +19,6 @@ sink(log_path, split = TRUE)
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwvent.R
 
 # Outputs:     .../code/ch4/_LOGS/table_4-5_log.txt
 
@@ -27,6 +26,36 @@ sink(log_path, split = TRUE)
 #              for the Interventional Effects of College Attendance on CES-D 
 #              Scores Computed from the NLSY.
 #-------------------------------------------------------------------------------
+
+
+#------------------------#
+#  INSTALL DEPENDENCIES  #
+#------------------------#
+# First, install dependencies available on CRAN.
+# The following packages are used to parallelize the bootstrap.
+dependencies_cran <- c("doParallel", "doRNG", "foreach")
+
+#install.packages(dependencies_cran)
+# ^ Uncomment this line above to install these packages.
+
+# (And note that, once you have installed these packages, there is no need for 
+# you to load these packages with the library function to run the code in this 
+# script.)
+
+
+# Second, install the rwrmed R package, which is available to install from 
+# GitHub.
+# To install the package directly, you must first have installed the devtools 
+# package (which is available on CRAN).
+
+#install.packages("devtools")
+# ^ Uncomment this line above to install the devtools package, if you have not 
+# already done so.
+
+#devtools::install_github("xiangzhou09/rwrmed")
+# ^ Uncomment this line above to install the rwrmed package from GitHub.
+
+
 
 
 #-------------#
@@ -42,17 +71,11 @@ library(haven)
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 # utilities
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/utils_bare.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
 # RWR estimator
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/rwrlite.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
 # simulation estimator
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
-source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/medsim.R")
-# IPW estimator
-#source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwvent.R")
-#source("C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/test project/R/ipwvent.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
 
 
 
@@ -109,8 +132,7 @@ n_reps <- 2000
 #  PREPARE DATA  #
 #----------------#
 nlsy_raw <- read_stata(
-  #file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
-  file = "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Data/NLSY79/nlsy79BK_ed2.dta"
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
 )
 
 nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
@@ -124,10 +146,17 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 #------------------#
 #  MODEL FORMULAE  #
 #------------------#
+# D model: Additive
 # L model: With D x C interactions
-# M model: With D x C interactions
+# M model (for RWR and simulation): With D x C interactions
+# M model (for IPW): With D x C, D x L interactions (and L main effect)
 # Y model: With D x M, D x C, M x C, M x L interactions
 # Note that M here is the log form
+
+# D model formula
+predictors_D <- paste(C, collapse = " + ")
+(formula_D_string <- paste(D, "~", predictors_D))
+formula_D <- as.formula(formula_D_string)
 
 # L and M model formulae
 ## main effects
@@ -143,6 +172,25 @@ predictors_LM <- paste(
 (formula_M_string <- paste(M, "~", predictors_LM))
 formula_L <- as.formula(formula_L_string)
 formula_M <- as.formula(formula_M_string)
+
+# M model formula for IPW
+## main effects
+predictors2_M <- paste(c(D,C,L), collapse = " + ")
+## D x C interactions
+predictors2_M <- paste(
+  predictors2_M,
+  "+",
+  paste(D, C, sep = ":", collapse = " + ")
+)
+## D x L interaction
+predictors2_M <- paste(
+  predictors2_M,
+  "+",
+  paste(D, L, sep = ":", collapse = " + ")
+)
+## full formula
+(formula2_M_string <- paste(M, "~", predictors2_M))
+formula2_M <- as.formula(formula2_M_string)
 
 # Y model formula
 ## main effects
@@ -268,7 +316,462 @@ out_sim_cde <- medsim(
 #-----------------#
 #  IPW ESTIMATOR  #
 #-----------------#
-# to do
+# Define inner custom IPW function
+# ----------------------------------------
+custom_ipwvent_inner <- function(
+  data,
+  D,
+  M,
+  Y,
+  L,
+  m = 0,
+  D_formula,
+  L_formula,
+  M_formula,
+  stabilize = TRUE,
+  censor = TRUE,
+  censor_low = 0.01,
+  censor_high = 0.99,
+  minimal = FALSE
+) {
+  # fit specified models
+  ## estimate f(D|C)
+  D_model <- glm(
+    D_formula,
+    data = data,
+    family = binomial(link = "logit")
+  )
+  ## estimate q(L|C,D)
+  L_model <- glm(
+    L_formula,
+    data = data,
+    family = binomial(link = "logit")
+  )
+  ## estimate g(M|C,D,L)
+  M_model <- lm(
+    M_formula,
+    data = data
+  )
+  
+  # estimate p(D|C) for each value of D
+  pDd_C <- lapply(
+    D_values,
+    \(d) dbinom(
+      d,
+      size = 1,
+      prob = predict(D_model, newdata = data, type = "response")
+    )
+  )
+  names(pDd_C) <- paste0("pD", D_values, "_C")
+  list2env(pDd_C, envir = environment())
+  
+  # estimate p(D|C) for the observed D
+  pD_C <- dbinom(
+    data[[D]],
+    size = 1,
+    prob = predict(D_model, newdata = data, type = "response")
+  )
+  
+  # estimate p(D) for each value of D
+  pD1 <- mean(data[[D]])
+  pD0 <- 1 - pD1
+  
+  # estimate p(D) for the observed D
+  pD <- ifelse(as.logical(data[[D]]), pD1, pD0)
+  
+  # estimate p(L|D,C) for each value of L and D
+  pLl_DdC <- mapply(
+    function(d, l) {
+      temp_data <- data
+      temp_data[[D]] <- d
+      dbinom(
+        l,
+        size = 1,
+        prob = predict(L_model, newdata = temp_data, type = "response")
+      )
+    },
+    cross_DL$D_val,
+    cross_DL$L_val,
+    SIMPLIFY = FALSE
+  )
+  names(pLl_DdC) <- paste0("pL", cross_DL$L_val, "_D", cross_DL$D_val, "C")
+  list2env(pLl_DdC, envir = environment())
+  
+  # estimate p(M|D,L,C) for the observed M and each value of D and L
+  pM_DdLlC <- mapply(
+    function(d, l) {
+      temp_data <- data
+      temp_data[[D]] <- d
+      temp_data[[L]] <- l
+      dnorm(
+        temp_data[[M]],
+        mean = predict(M_model, newdata = temp_data, type = "response"),
+        sd = sigma(M_model)
+      )
+    },
+    cross_DL$D_val,
+    cross_DL$L_val,
+    SIMPLIFY = FALSE
+  )
+  names(pM_DdLlC) <- paste0("pM_D", cross_DL$D_val, "L", cross_DL$L_val, "C")
+  list2env(pM_DdLlC, envir = environment())
+  
+  # estimate p(M|D,L,C) for the observed M, observed L, and each value of D
+  pM_DdLC <- lapply(
+    D_values,
+    function(d) {
+      temp_data <- data
+      temp_data[[D]] <- d
+      dnorm(
+        temp_data[[M]],
+        mean = predict(M_model, newdata = temp_data, type = "response"),
+        sd = sigma(M_model)
+      )
+    }
+  )
+  names(pM_DdLC) <- paste0("pM_D", D_values, "LC")
+  list2env(pM_DdLC, envir = environment())
+  
+  # estimate p(M|D,L,C) for the observed M, observed D, and observed L
+  pM_DLC <- dnorm(
+    data[[M]],
+    mean = predict(M_model, newdata = data, type = "response"),
+    sd = sigma(M_model)
+  )
+  
+  # estimate p(M|D) for the observed M and observed D
+  M_mean <- ave(data[[M]], data[[D]])
+  M_dev <- data[[M]] - M_mean
+  pM_D <- dnorm(
+    data[[M]],
+    mean = M_mean,
+    sd = sd(M_dev)
+  )
+  
+  # for convenience, create logical vectors to identify subgroups
+  group_D0 <- data[[D]]==0
+  group_D1 <- data[[D]]==1
+  
+  # create IPWs
+  w1 <- ifelse(
+    group_D0,
+    ((pM_D0L0C * pL0_D0C) + (pM_D0L1C * pL1_D0C)) /
+      (pD0_C * pM_D0LC)
+    ,
+    0
+  )
+  w2 <- ifelse(
+    group_D1,
+    ((pM_D1L0C * pL0_D1C) + (pM_D1L1C * pL1_D1C)) /
+      (pD1_C * pM_D1LC)
+    ,
+    0
+  )
+  w3 <- ifelse(
+    group_D1,
+    ((pM_D0L0C * pL0_D0C) + (pM_D0L1C * pL1_D0C)) /
+      (pD1_C * pM_D1LC)
+    ,
+    0
+  )
+  w4 <- 1 / (pM_DLC * pD_C)
+  
+  # stabilize IPWs
+  if (stabilize) {
+    w1 <- w1 * pD0
+    w2 <- w2 * pD1
+    w3 <- w3 * pD1
+    w4 <- w4 * pM_D * pD
+  }
+  
+  # censor IPWs (among the appropriate subgroups with non-zero IPWs)
+  if (censor) {
+    w1[group_D0] <- trimQ(w1[group_D0], low = censor_low, high = censor_high)
+    w2[group_D1] <- trimQ(w2[group_D1], low = censor_low, high = censor_high)
+    w3[group_D1] <- trimQ(w3[group_D1], low = censor_low, high = censor_high)
+    w4 <- trimQ(w4, low = censor_low, high = censor_high)
+  }
+  
+  # estimate OE, IDE, and IIE
+  Ehat_Y0M0 <- weighted.mean(data[[Y]], w1)
+  Ehat_Y1M1 <- weighted.mean(data[[Y]], w2)
+  Ehat_Y1M0 <- weighted.mean(data[[Y]], w3)
+  OE  <- Ehat_Y1M1 - Ehat_Y0M0
+  IDE <- Ehat_Y1M0 - Ehat_Y0M0
+  IIE <- Ehat_Y1M1 - Ehat_Y1M0
+  
+  # estimate CDE
+  Y_model <- lm(
+    as.formula(paste0(Y,"~",D,"*",M)),
+    data = data,
+    weights = w4
+  )
+  CDE <- 
+    Y_model$coefficients[[D]] + 
+    Y_model$coefficients[[paste0(D,":",M)]] * m
+  
+  # compile and output
+  if (minimal) {
+    out <- list(
+      OE = OE,
+      IDE = IDE,
+      IIE = IIE,
+      CDE = CDE
+    )
+  }
+  else {
+    out <- list(
+      OE = OE,
+      IDE = IDE,
+      IIE = IIE,
+      CDE = CDE,
+      weights1 = w1,
+      weights2 = w2,
+      weights3 = w3,
+      weights4 = w4,
+      model_D = D_model,
+      model_L = L_model,
+      model_M = M_model
+    )
+  }
+  return(out)
+}
+
+
+# Define outer custom IPW function (bootstrapping the inner function)
+# ----------------------------------------
+custom_ipwvent <- function(
+  data,
+  D,
+  M,
+  Y,
+  L,
+  m = 0,
+  D_formula,
+  L_formula,
+  M_formula,
+  stabilize = TRUE,
+  censor = TRUE,
+  censor_low = 0.01,
+  censor_high = 0.99,
+  boot = FALSE,
+  boot_reps = 1000,
+  boot_conf_level = 0.95,
+  boot_seed = NULL,
+  boot_parallel = FALSE,
+  boot_cores = max(c(parallel::detectCores()-2,1))
+) {
+  # load data
+  data_outer <- data
+  
+  
+  # create adjusted boot_parallel logical
+  boot_parallel_rev <- ifelse(boot_cores>1, boot_parallel, FALSE)
+  
+  
+  # preliminary error/warning checks for the bootstrap
+  if (boot) {
+    if (boot_parallel & boot_cores==1) {
+      warning(paste(strwrap("Warning: You requested a parallelized bootstrap (boot=TRUE and boot_parallel=TRUE), but you do not have enough cores available for parallelization. The bootstrap will proceed without parallelization."), collapse = "\n"))
+    }
+    if (boot_parallel_rev & !requireNamespace("doParallel", quietly = TRUE)) {
+      stop(paste(strwrap("Error: You requested a parallelized bootstrap (boot=TRUE and boot_parallel=TRUE), but the required package 'doParallel' has not been installed. Please install this package if you wish to run a parallelized bootstrap."), collapse = "\n"))
+    }
+    if (boot_parallel_rev & !requireNamespace("doRNG", quietly = TRUE)) {
+      stop(paste(strwrap("Error: You requested a parallelized bootstrap (boot=TRUE and boot_parallel=TRUE), but the required package 'doRNG' has not been installed. Please install this package if you wish to run a parallelized bootstrap."), collapse = "\n"))
+    }
+    if (boot_parallel_rev & !requireNamespace("foreach", quietly = TRUE)) {
+      stop(paste(strwrap("Error: You requested a parallelized bootstrap (boot=TRUE and boot_parallel=TRUE), but the required package 'foreach' has not been installed. Please install this package if you wish to run a parallelized bootstrap."), collapse = "\n"))
+    }
+  }
+  
+  
+  # D and L values
+  # (Defining these in the outer function in case the bootstrap resampling 
+  # fails to sample one of the D or L values.)
+  D_values <- unique(data_outer[[D]])
+  L_values <- unique(data_outer[[L]])
+  cross_DL <- expand.grid(D_val = D_values, L_val = L_values)
+  
+  
+  # reset the environment of the inner function, so that it can access the 
+  # D_values, L_values, and cross_DL objects
+  environment(custom_ipwvent_inner) <- environment()
+  
+  
+  # compute point estimates
+  est <- custom_ipwvent_inner(
+    data = data_outer,
+    D = D,
+    M = M,
+    Y = Y,
+    L = L,
+    m = m,
+    D_formula = D_formula,
+    L_formula = L_formula,
+    M_formula = M_formula,
+    stabilize = stabilize,
+    censor = censor,
+    censor_low = censor_low,
+    censor_high = censor_high,
+    minimal = FALSE
+  )
+  
+  
+  # bootstrap, if requested
+  if (boot) {
+    # bootstrap function
+    boot_fnc <- function() {
+      # sample from the data with replacement
+      boot_data <- data_outer[sample(nrow(data_outer), size = nrow(data_outer), replace = TRUE), ]
+      
+      # compute point estimates in the replicate sample
+      custom_ipwvent_inner(
+        data = boot_data,
+        D = D,
+        M = M,
+        Y = Y,
+        L = L,
+        m = m,
+        D_formula = D_formula,
+        L_formula = L_formula,
+        M_formula = M_formula,
+        stabilize = stabilize,
+        censor = censor,
+        censor_low = censor_low,
+        censor_high = censor_high,
+        minimal = TRUE
+      )
+    }
+    
+    # parallelization prep, if parallelization requested
+    if (boot_parallel_rev) {
+      x_cluster <- parallel::makeCluster(boot_cores, type="PSOCK")
+      doParallel::registerDoParallel(cl=x_cluster)
+      parallel::clusterExport(
+        cl = x_cluster, 
+        varlist = c("custom_ipwvent_inner", "trimQ"),
+        envir = environment()
+      )
+      `%dopar%` <- foreach::`%dopar%`
+    }
+    
+    # set seed
+    if (!is.null(boot_seed)) {
+      set.seed(boot_seed)
+      if (boot_parallel) {
+        doRNG::registerDoRNG(boot_seed)
+      }
+    }
+    
+    # compute estimates for each replicate sample
+    if (boot_parallel_rev) {
+      boot_res <- foreach::foreach(i = 1:boot_reps, .combine = comb_list_vec) %dopar% {
+        boot_fnc()
+      }
+      boot_OE <- boot_res$OE
+      boot_IDE <- boot_res$IDE
+      boot_IIE <- boot_res$IIE
+      boot_CDE <- boot_res$CDE
+    }
+    else {
+      boot_OE <- rep(NA_real_, boot_reps)
+      boot_IDE <- rep(NA_real_, boot_reps)
+      boot_IIE <- rep(NA_real_, boot_reps)
+      boot_CDE <- rep(NA_real_, boot_reps)
+      for (i in seq_len(boot_reps)) {
+        boot_iter <- boot_fnc()
+        boot_OE[i] <- boot_iter$OE
+        boot_IDE[i] <- boot_iter$IDE
+        boot_IIE[i] <- boot_iter$IIE
+        boot_CDE[i] <- boot_iter$CDE
+      }
+    }
+    
+    # clean up
+    if (boot_parallel_rev) {
+      parallel::stopCluster(x_cluster)
+      rm(x_cluster)
+    }
+    
+    # compute bootstrap confidence intervals 
+    # from percentiles of the bootstrap distributions
+    boot_alpha <- 1 - boot_conf_level
+    boot_ci_probs <- c(
+      boot_alpha/2,
+      1 - boot_alpha/2
+    )
+    boot_ci <- function(x) {
+      quantile(x, probs=boot_ci_probs)
+    }
+    ci_OE <- boot_ci(boot_OE)
+    ci_IDE <- boot_ci(boot_IDE)
+    ci_IIE <- boot_ci(boot_IIE)
+    ci_CDE <- boot_ci(boot_CDE)
+    
+    # compute two-tailed bootstrap p-values
+    boot_pval <- function(x) {
+      2 * min(
+        mean(x < 0),
+        mean(x > 0)
+      )
+    }
+    pvalue_OE <- boot_pval(boot_OE)
+    pvalue_IDE <- boot_pval(boot_IDE)
+    pvalue_IIE <- boot_pval(boot_IIE)
+    pvalue_CDE <- boot_pval(boot_CDE)
+    
+    # compile bootstrap results
+    boot_out <- list(
+      ci_OE = ci_OE,
+      ci_IDE = ci_IDE,
+      ci_IIE = ci_IIE,
+      ci_CDE = ci_CDE,
+      pvalue_OE = pvalue_OE,
+      pvalue_IDE = pvalue_IDE,
+      pvalue_IIE = pvalue_IIE,
+      pvalue_CDE = pvalue_CDE,
+      boot_OE = boot_OE,
+      boot_IDE = boot_IDE,
+      boot_IIE = boot_IIE,
+      boot_CDE = boot_CDE
+    )
+  }
+  
+  
+  # final output
+  out <- est
+  if (boot) {
+    out <- append(out, boot_out)
+  }
+  return(out)
+}
+
+
+# Run custom IPW function
+# ----------------------------------------
+out_ipw <- custom_ipwvent(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  L = L,
+  m = m,
+  D_formula = formula_D,
+  L_formula = formula_L,
+  M_formula = formula2_M,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # have installed the following R packages: doParallel, doRNG, foreach.
+  # (You do not need to load those packages beforehand, with the library 
+  # function.)
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
+  # argument to FALSE), the results may differ slightly, due to simulation 
+  # variance (even if you specify the same seed).
+)
 
 
 
@@ -321,22 +824,22 @@ master <- data.frame(
   
   # IPW
   ipw_pvalue = c(
-    NA_real_,
-    NA_real_,
-    NA_real_,
-    NA_real_
+    out_ipw$pvalue_OE,
+    out_ipw$pvalue_IDE,
+    out_ipw$pvalue_IIE,
+    out_ipw$pvalue_CDE
   ),
   ipw_ci_low = c(
-    NA_real_,
-    NA_real_,
-    NA_real_,
-    NA_real_
+    out_ipw$ci_OE[1],
+    out_ipw$ci_IDE[1],
+    out_ipw$ci_IIE[1],
+    out_ipw$ci_CDE[1]
   ),
   ipw_ci_high = c(
-    NA_real_,
-    NA_real_,
-    NA_real_,
-    NA_real_
+    out_ipw$ci_OE[2],
+    out_ipw$ci_IDE[2],
+    out_ipw$ci_IIE[2],
+    out_ipw$ci_CDE[2]
   )
 )
 
