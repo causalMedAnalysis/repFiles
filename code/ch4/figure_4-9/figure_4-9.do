@@ -2,17 +2,21 @@
 capture clear all
 capture log close
 set more off
-set maxvar 50000
+set maxvar 50000, perm
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
+
+net install parallel, from("https://raw.github.com/gvegayon/parallel/stable/") replace 
+mata mata mlib index
+
 github install causalMedAnalysis/rwrlite, replace 
 github install causalMedAnalysis/ipwvent, replace
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
-global figdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\figures\ch4\" 
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
+global figdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\figures\ch4\" 
 
 //download data
 copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
@@ -59,7 +63,7 @@ matrix ci_matrix = e(ci_percentile)'
 matrix ipwResults = b_matrix, ci_matrix
 
 //compute simulation estimates w/ custom function for fitting ordinal logit 
-//model for L and log binomial model for Y
+//model for L and logistic binomial model for Y
 capture program drop custsim
 program define custsim, rclass
 
@@ -71,7 +75,7 @@ program define custsim, rclass
 	reg $M $D $C
 	est store Mmodel
 	
-	glm $Y i.$D##c.$M $L $C, family(binomial) link(log)
+	glm $Y i.$D##c.$M $L $C, family(binomial) link(logit)
 	est store Ymodel
 
 	gen D_orig=$D
@@ -114,38 +118,33 @@ program define custsim, rclass
 		replace $L=L0_`i'
 		replace $M=M0_`i'
 		
-		predict yhat_Y0L0M0, xb
-		gen phat_Y0L0M0=exp(yhat_Y0L0M0)
+		predict phat_Y0L0M0
 		gen Y0L0M0_`i'=rbinomial(100,phat_Y0L0M0)/100 
 
 		replace $D=1
 		replace $L=L1_`i'
 		replace $M=M1_`i'
 		
-		predict yhat_Y1L1M1, xb
-		gen phat_Y1L1M1=exp(yhat_Y1L1M1)
+		predict phat_Y1L1M1
 		gen Y1L1M1_`i'=rbinomial(100,phat_Y1L1M1)/100
 
 		replace $M=M0_`i'
 
-		predict yhat_Y1L1M0, xb
-		gen phat_Y1L1M0=exp(yhat_Y1L1M0)
+		predict phat_Y1L1M0
 		gen Y1L1M0_`i'=rbinomial(100,phat_Y1L1M0)/100
 
 	    replace $M=7.5
 	
-		predict yhat_Y1L1m, xb
-		gen phat_Y1L1m=exp(yhat_Y1L1m)
+		predict phat_Y1L1m
 		gen Y1L1m_`i'=rbinomial(100,phat_Y1L1m)/100
 
 		replace $D=0
 		replace $L=L0_`i'
 		
-		predict yhat_Y0L0m, xb
-		gen phat_Y0L0m=exp(yhat_Y0L0m)
+		predict phat_Y0L0m
 		gen Y0L0m_`i'=rbinomial(100,phat_Y0L0m)/100 
 		
-		drop phat* yhat* mhat* M0_* M1_* L0_* L1_*
+		drop phat* mhat* M0_* M1_* L0_* L1_*
 	}
 
 	egen Y0L0M0_=rowmean(Y0L0M0_*)
@@ -187,8 +186,16 @@ program define custsim, rclass
 	
 end
 
-qui bootstrap OE=r(oe) IDE=r(ide) IIE=r(iie) CDE=r(cde), ///
-	reps(2000) seed(60637): custsim, nsim(2000)
+//parallelize the bootstrap to reduce wall time
+parallel initialize 18 //specify number of logical cores for each child process
+
+global rseeds ""
+forval i=1/18 {
+    global rseeds "$rseeds 5000`i'" //specify seed for each child process
+}
+
+parallel bs, expr(OE=r(oe) IDE=r(ide) IIE=r(iie) CDE=r(cde)) ///
+	reps(2000) seed("$rseeds"): custsim, nsim(2000)
 		
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
