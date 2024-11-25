@@ -18,8 +18,6 @@ sink(log_path, split = TRUE)
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/plowUse/plowUse.dta
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwvent.R
 
 # Outputs:     .../code/ch4/_LOGS/figure_4-9_log.txt
 #              .../figures/ch4/figure_4-9.png
@@ -83,6 +81,9 @@ library(haven)
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
 # RWR estimator
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
+# ^ Note that rwrlite() is a wrapper for two functions from the rwrmed package. 
+# It requires that you have installed rwrmed. (But you do not need to load the 
+# rwrmed package beforehand, with the library function.)
 
 
 
