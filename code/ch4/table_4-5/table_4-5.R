@@ -74,6 +74,9 @@ library(haven)
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
 # RWR estimator
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
+# ^ Note that rwrlite() is a wrapper for two functions from the rwrmed package. 
+# It requires that you have installed rwrmed. (But you do not need to load the 
+# rwrmed package beforehand, with the library function.)
 # simulation estimator
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
 
