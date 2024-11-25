@@ -40,7 +40,7 @@ library(haven)
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 # simulation estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")\
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
 # regression imputation CDE estimator
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
 
