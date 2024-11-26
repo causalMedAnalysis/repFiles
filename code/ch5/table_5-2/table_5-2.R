@@ -184,7 +184,7 @@ predictors1_D <- paste(C, collapse = " + ")
 predictors2_D <- paste(c(M,C), collapse = " + ")
 (formula2_D_string <- paste(D, "~", predictors2_D))
 
-# Estimate ATE(1,0), NDE(1,0), NIE(1,0)
+# Estimate effects
 out_ipw <- ipwmed(
   data = nlsy,
   D = D,
@@ -206,7 +206,7 @@ out_ipw <- ipwmed(
 #  COLLATE RESULTS  #
 #-------------------#
 master <- data.frame(
-  param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)"),
+  param = c("ATE(1,0)", "NDE_M(1,0)", "NIE_M(1,0)"),
   
   # linear models: version 1
   lin1_est = c(
