@@ -1,105 +1,277 @@
-###Table 5.2###
+# Preliminaries
+chapter <- "ch5"
+title <- "table_5-2"
+dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-rm(list=ls())
+# Open log
+sink(log_path, split = TRUE)
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-packages<-c("tidyverse", "margins", "mediation", "foreach", "doParallel", "doRNG")
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-for (package.i in packages) {
-  suppressPackageStartupMessages(library(package.i, character.only=TRUE))
-}
-source("utils.R")
+# Script:      .../code/ch5/table_5-2.R
 
-##office
-datadir <- "../../data/" 
-logdir <- "../../code/ch5/_LOGS/"
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
 
-#sink(paste(logdir, "table_5-2_log.txt", sep=""))
+# Outputs:     .../code/ch5/_LOGS/table_5-2_log.txt
 
-##input data
-nlsy_raw <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
+# Description: Replicates Chapter 5, Table 5.2: Total, Direct, and Indirect 
+#              Effects of College Attendance on CES-D Scores as Estimated from 
+#              the Multiple-Mediators-as-a-Whole Approach with the NLSY.
+#-------------------------------------------------------------------------------
 
-d <- "att22"
-m1 <- "ever_unemp_age3539"
-m2 <- "log_faminc_adj_age3539"
-y <- "std_cesd_age40"
-x <- c("female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")
 
-nlsy <- nlsy_raw[complete.cases(nlsy_raw[, c(d, "cesd_age40", m1, m2, x)]),] %>% 
-  mutate(std_cesd_age40 = as.numeric(scale(cesd_age40)))
+#------------------------#
+#  INSTALL DEPENDENCIES  #
+#------------------------#
+# The following packages are used to parallelize the bootstrap.
+dependencies <- c("doParallel", "doRNG", "foreach")
 
-summary(nlsy)
+#install.packages(dependencies)
+# ^ Uncomment this line above to install these packages.
 
-## linear model estimators
+# And note that, once you have installed these packages, there is no need for 
+# you to load these packages with the library function to run the code in this 
+# script.
 
-df <- nlsy
-m <- c(m1, m2)
 
-#linear model w/o exposure-mediator interaction
 
-linmed_m <- linmed(df, d, m, y, x)
 
-#linear model w exposure-mediator interaction
+#-------------#
+#  LIBRARIES  #
+#-------------#
+library(tidyverse)
+library(haven)
 
-linmedx_m <- linmedx(df, d, m, y, x)
 
-# ipw estimator
 
-ipwmed_m <- ipwmed(df, d, m, y, x)
 
-# summary of point estimates
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+# utilities
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+# product-of-coefficients estimator, based on linear models
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
+# IPW estimator
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
 
-est_m <- list(linmed_m, linmedx_m, ipwmed_m) %>%
-  map(unlist) %>%
-  bind_rows() %>%
-  t() %>% 
-  `colnames<-`( c("^lma", "^lmi", "^ipw"))
 
-# bootstrap SEs for linmed and linmedx and ipwmed
 
-#setup parallel computing cluster
-ncores <- parallel::detectCores()-1
-my.cluster <- parallel::makeCluster(ncores,type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-clusterExport(cl=my.cluster, list("linmed", "linmedx", "ipwmed"), envir=environment())
-registerDoRNG(3308004)
 
-nboot <- 2000
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
 
-m_boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
+# exposure
+D <- "att22"
+
+# mediators
+M <- c(
+  "ever_unemp_age3539",
+  "log_faminc_adj_age3539"
+)
+
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
+
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  M,
+  C
+)
+
+# number of bootstrap replications
+n_reps <- 2000
+
+
+
+
+#----------------#
+#  PREPARE DATA  #
+#----------------#
+nlsy_raw <- read_stata(
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+)
+
+nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
+
+
+
+
+#-------------------------------------#
+#  LINEAR MODEL ESTIMATOR: Version 1  #
+#-------------------------------------#
+# Additive linear model
+
+out_lin1 <- linmed(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  C = C,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # have installed the following R packages: doParallel, doRNG, foreach.
+  # (You do not need to load those packages beforehand, with the library 
+  # function.)
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
+  # argument to FALSE), the results may differ slightly, due to simulation 
+  # variance (even if you specify the same seed).
+)
+
+
+
+
+#-------------------------------------#
+#  LINEAR MODEL ESTIMATOR: Version 2  #
+#-------------------------------------#
+# Linear model with D x M interaction
+
+out_lin2 <- linmed(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  C = C,
+  interaction_DM = TRUE,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ See note above about parallelizing the bootstrap.
+)
+
+
+
+
+#-----------------#
+#  IPW ESTIMATOR  #
+#-----------------#
+# Additive logit models
+
+# D model 1 formula: f(D|C)
+predictors1_D <- paste(C, collapse = " + ")
+(formula1_D_string <- paste(D, "~", predictors1_D))
+
+# D model 2 formula: s(D|C,M)
+predictors2_D <- paste(c(M,C), collapse = " + ")
+(formula2_D_string <- paste(D, "~", predictors2_D))
+
+# Estimate ATE(1,0), NDE(1,0), NIE(1,0)
+out_ipw <- ipwmed(
+  data = nlsy,
+  D = D,
+  M = M,
+  Y = Y,
+  formula1_string = formula1_D_string,
+  formula2_string = formula2_D_string,
+  boot = TRUE,
+  boot_reps = n_reps,
+  boot_seed = 3308004,
+  boot_parallel = TRUE
+  # ^ See note above about parallelizing the bootstrap.
+)
+
+
+
+
+#-------------------#
+#  COLLATE RESULTS  #
+#-------------------#
+master <- data.frame(
+  param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)"),
   
-  boot_data <- nlsy[sample(nrow(nlsy), nrow(nlsy), replace=TRUE),]
+  # linear models: version 1
+  lin1_est = c(
+    out_lin1$ATE,
+    out_lin1$NDE,
+    out_lin1$NIE
+  ),
+  lin1_ci_low = c(
+    out_lin1$ci_ATE[1],
+    out_lin1$ci_NDE[1],
+    out_lin1$ci_NIE[1]
+  ),
+  lin1_ci_high = c(
+    out_lin1$ci_ATE[2],
+    out_lin1$ci_NDE[2],
+    out_lin1$ci_NIE[2]
+  ),
   
-  boot_linmed <- linmed(boot_data, d, m, y, x)
+  # linear models: version 2
+  lin2_est = c(
+    out_lin2$ATE,
+    out_lin2$NDE,
+    out_lin2$NIE
+  ),
+  lin2_ci_low = c(
+    out_lin2$ci_ATE[1],
+    out_lin2$ci_NDE[1],
+    out_lin2$ci_NIE[1]
+  ),
+  lin2_ci_high = c(
+    out_lin2$ci_ATE[2],
+    out_lin2$ci_NDE[2],
+    out_lin2$ci_NIE[2]
+  ),
   
-  boot_linmedx <- linmedx(boot_data, d, m, y, x)
-  
-  boot_ipwmed <- ipwmed(boot_data, d, m, y, x)
-  
-  list(linmed = boot_linmed,
-       linmedx = boot_linmedx,
-       ipwmed = boot_ipwmed)
-}
+  # IPW
+  ipw_est = c(
+    out_ipw$ATE,
+    out_ipw$NDE,
+    out_ipw$NIE
+  ),
+  ipw_ci_low = c(
+    out_ipw$ci_ATE[1],
+    out_ipw$ci_NDE[1],
+    out_ipw$ci_NIE[1]
+  ),
+  ipw_ci_high = c(
+    out_ipw$ci_ATE[2],
+    out_ipw$ci_NDE[2],
+    out_ipw$ci_NIE[2]
+  )
+)
 
-stopCluster(my.cluster)
-rm(my.cluster)
+width_curr <- getOption("width")
+options(width = 500)
+master |>
+  mutate(
+    across(
+      .cols = !param,
+      .fns = \(x) round(x, 3)
+    )
+  )
+options(width = width_curr)
 
-clnms <- expand_grid(method = c("linmed", "linmedx", "ipwmed"), estimand = c("ATE", "NDE", "NIE")) %>% unite("") %>% unlist()
 
-m_boot_mat <- m_boot %>% 
-  map(unlist) %>% 
-  unlist() %>% 
-  matrix(ncol = 9, byrow = TRUE) %>% 
-  `colnames<-`(clnms)
+# Close log
+sink()
 
-m_out <- apply(m_boot_mat, 2, quantile, probs = c(0.025, 0.975)) %>% 
-  t() %>% 
-  as_tibble() %>%
-  bind_cols(est = as.numeric(est_m), .) %>% 
-  mutate_all( ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", `2.5%`, ", ", `97.5%`, ")")) %>% 
-  mutate(out = paste(est, intv), name = clnms) %>% 
-  dplyr::select(name, est, `2.5%`, `97.5%`, out)
-
-write_csv(m_out, file = "table5-2.csv")
-
-#sink()
