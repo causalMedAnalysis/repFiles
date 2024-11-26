@@ -169,13 +169,7 @@ out_m1v2 <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
-  # variance (even if you specify the same seed).
+  # ^ See note above about parallelizing the bootstrap.
 )
 
 
@@ -196,13 +190,7 @@ out_m2v1 <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
-  # variance (even if you specify the same seed).
+  # ^ See note above about parallelizing the bootstrap.
 )
 
 
@@ -224,13 +212,7 @@ out_m2v2 <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
-  # variance (even if you specify the same seed).
+  # ^ See note above about parallelizing the bootstrap.
 )
 
 
