@@ -156,11 +156,8 @@ IDEhat_npl <- agg2 |>
     ,
     by = c(M,L,C)
   ) |>
-  mutate(
-    product = sign * mean * prop_L_CD * prop_M_Cdstar * prop_C
-  ) |>
   summarize(
-    est = sum(product)
+    est = sum(sign * mean * prop_L_CD * prop_M_Cdstar * prop_C)
   ) |>
   pull(est)
 
@@ -176,13 +173,10 @@ IIEhat_npl <- agg2 |>
     by = c(M,L,C)
   ) |>
   filter(.data[[D]]==1) |>
-  mutate(
-    product = (prop_M_CD - prop_M_Cdstar) * mean * prop_L_CD * prop_C
+  summarize(
+    est = sum((prop_M_CD - prop_M_Cdstar) * mean * prop_L_CD * prop_C)
     # ^ since we have filtered to D==1, prop_M_CD is equal to prop_M_Cd 
     # (i.e., the estimate of P(M|C,d))
-  ) |>
-  summarize(
-    est = sum(product)
   ) |>
   pull(est)
 
