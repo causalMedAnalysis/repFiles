@@ -45,6 +45,7 @@ sink(log_path, split = TRUE)
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R
 
 # Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
 
