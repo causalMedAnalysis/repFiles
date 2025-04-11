@@ -40,6 +40,7 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch5/table_5-9.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R
 
 
 # Outputs:     .../code/ch5/_LOGS/figure_5-6_log.txt
@@ -282,8 +283,9 @@ delta_DU_ba <- Model_UD_ba$coefficients["tone_eth"] # effect of U on D
 
 
 # sensitivity analysis plot
-plot(Paths_Sens_Model, 
-     outcome_name = "Support for Immigration") +
+plot(
+  Paths_Sens_Model, 
+  outcome_name = "Support for Immigration") +
   xlab(
     bquote(
       "Conditional Difference in the Prevalence of U across levels of D"~(delta[DU])
