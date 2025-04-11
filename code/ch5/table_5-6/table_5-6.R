@@ -83,6 +83,7 @@ install_and_load(packages)
 # utilities
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
+
 #------------------#
 #  SPECIFICATIONS  #
 #------------------#
