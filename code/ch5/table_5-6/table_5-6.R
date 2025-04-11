@@ -1,140 +1,267 @@
-###Table 5.5-5.6###
+#----------Preliminaries----------#
+rm(list = ls())
+chapter <- "ch5"
+title <- "table_5-6"
 
-rm(list=ls())
+# Specify the root directory:
+dir_root <- "Please Change this to Your Local Directory" 
 
-packages<-c("tidyverse", "margins", "mediation", "foreach", "doParallel", "doRNG")
+# Define subdirectories for logs and figures:
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
+dir_tab <- paste0(dir_root, "/table/", chapter)
 
-for (package.i in packages) {
-  suppressPackageStartupMessages(library(package.i, character.only=TRUE))
+# Ensure all necessary directories exist under your root folder，
+# if not, the function will create folders for you:
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
 }
-source("utils.R")
 
-# devtools::install_github("xiangzhou09/paths")
-library(paths)
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+create_dir_if_missing(dir_fig)
+create_dir_if_missing(dir_tab)
 
-##office
-datadir <- "../../data/" 
-logdir <- "../../code/ch5/_LOGS/"
+# Open log
+sink(log_path, split = TRUE)
 
-#sink(paste(logdir, "table_5-1_log.txt", sep=""))
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-##input data
-nlsy_raw <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-d <- "att22"
-m1 <- "ever_unemp_age3539"
-m2 <- "log_faminc_adj_age3539"
-y <- "std_cesd_age40"
-x <- c("female", "black", "hispan", "paredu", "parprof", "parinc_prank", "famsize", "afqt3")
+# Script:      .../code/ch5/table_5-6.R
 
-nlsy <- nlsy_raw[complete.cases(nlsy_raw[, c(d, "cesd_age40", m1, m2, x)]),] %>% 
-  mutate(std_cesd_age40 = as.numeric(scale(cesd_age40)))
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R
 
-summary(nlsy)
+# Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
 
-df <- nlsy
-m12 <- c(m1, m2)
+# Description: Replicates Chapter 5, Table 5.6: Total and Path-Specific Effects 
+#              of College Attendance on CES-D Scores as Estimated using Regression 
+#              Imputation with NLSY.
+#-------------------------------------------------------------------------------
 
-set.seed(02138)
 
-##########################################
-## RI without interactions
-##########################################
+#-------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
+#------------------------------------------------#
 
-mediators <- list(m1, m2)
+# The following packages are required for replicate results:
+packages <-
+  c(
+    "tidyverse", 
+    "paths" # Main Package for this exercise
+  )
 
-formula_m0 <- as.formula(paste(y, "~", paste(c(x, d), collapse = " + ")))
-formula_m1 <- as.formula(paste(y, "~", paste(c(x, d, m1), collapse = " + ")))
-formula_m2 <- as.formula(paste(y, "~", paste(c(x, d, m1, m2), collapse = " + ")))
-formula_ps <- as.formula(paste(d, "~", paste(x, collapse = " + ")))
+# Below function will automatically download the package you need,
+# otherwise simply load the package:
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {  
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)  
+    }
+    library(pkg, character.only = TRUE)  
+  }
+}
 
-# outcome models
-glm_m0 <- glm(formula_m0, data = df)
-glm_m1 <- glm(formula_m1, data = df)
-glm_m2 <- glm(formula_m2, data = df)
+install_and_load(packages)
+
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+
+# utilities
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "std_cesd_age40"
+
+# exposure
+D <- "att22"
+
+# mediators
+M <- list(
+  "ever_unemp_age3539",
+  "log_faminc_adj_age3539"
+)
+
+# baseline confounder(s)
+C <- c(
+  "female",
+  "black",
+  "hispan",
+  "paredu",
+  "parprof",
+  "parinc_prank",
+  "famsize",
+  "afqt3"
+)
+
+# key variables
+key_vars <- c(
+  "cesd_age40", # unstandardized version of Y
+  D,
+  unlist(M),
+  C
+)
+
+# number of bootstrap replications
+n_reps <- 2000
+
+# set seed:
+boot_seed <- 02138
+
+#-----------------------------#
+#        PREPARE DATA         #
+#-----------------------------#
+
+nlsy_raw <- read_stata(
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+)
+
+df <- 
+  nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
+  mutate(
+    std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
+  )
+
+#------------------------------------------------------------------------------#
+#                            REPLICATE TABLE 5.6                               #
+#-----------------------------------------------------------------------------#
+
+# Note: The following model assumes no interaction between 2 mediators, 
+# which will replicate the results in table 5.6.
+
+#----------------------------------------#
+#    Example 1: Without Interaction:    #
+#--------------------------------------#
+
+# E(Y|D,C):
+glm_m0 <- glm(
+  std_cesd_age40 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3 + att22,
+  data = df
+)
+
+# E(Y|D,C,M1):
+glm_m1 <- glm(
+  std_cesd_age40 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3 + att22 + 
+    ever_unemp_age3539, 
+  data = df
+)
+
+# E(Y|D,C,M1,M2):
+glm_m2 <- glm(
+  std_cesd_age40 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3 + att22 + 
+    ever_unemp_age3539 + log_faminc_adj_age3539, 
+  data = df
+)
+
+# E(D|C):
+glm_ps <- glm(
+  att22 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3, 
+  family = binomial("logit"),
+  data = df
+)
+
+# Store above models in a list:
 glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
 
-# propensity score model
-glm_ps <- glm(formula_ps, family = binomial("logit"), data = df)
+# Fit the paths model use impath():
+glm_paths <-
+  pathimp(
+    D = D,
+    Y = Y,
+    M = M,
+    Y_models = glm_ymodels,
+    D_model = glm_ps,
+    data = df,
+    boot_reps = 2000,
+    boot_conf_level = 0.95,
+    boot_seed = boot_seed,
+    boot_parallel = "no",
+    boot_cores = 1,
+    round_decimal = 3,
+    out_ipw = TRUE
+  )
+print(glm_paths)
+write_csv(glm_paths, paste0(dir_tab,"/table5_6.csv"))
 
-paths_glm <- paths(a = d, y = y, m = mediators,
-                   glm_ymodels, ps_model = glm_ps, 
-                   data = df, nboot = 2000)
+#----------------------------------------#
+#    Example 2: With Interaction:       #
+#--------------------------------------#
 
-pure <- paths_glm$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
+# E(Y|D,C):
+glm_m0_x <- glm(
+  std_cesd_age40 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3 + att22,
+  data = df
+)
 
+# E(Y|D,C,M1):
+glm_m1_x <- glm(
+  std_cesd_age40 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3 + att22 + 
+    ever_unemp_age3539 + att22 * ever_unemp_age3539,
+  data = df
+)
 
-hybrid <- paths_glm$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
+# E(Y|D,C,M1,M2):
+glm_m2_x <- glm(
+  std_cesd_age40 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3 + att22 + 
+    ever_unemp_age3539 + log_faminc_adj_age3539 + 
+    att22 * ever_unemp_age3539 + 
+    att22 * log_faminc_adj_age3539,
+  data = df
+)
 
-m_out2a <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "n")
+# E(D|C):
+glm_ps_x <- glm(
+  att22 ~ female + black + hispan + paredu + parprof + 
+    parinc_prank + famsize + afqt3, 
+  family = binomial("logit"),
+  data = df
+)
 
-
-##########################################
-## RI with interactions
-##########################################
-
-formula_m0 <- as.formula(paste(y, "~", paste(c(x, d), collapse = " + ")))
-formula_m1x <- as.formula(paste(y, "~", paste(c(x, d, m1, paste(d, m1, sep = "*")), collapse = " + ")))
-formula_m2x <- as.formula(paste(y, "~", paste(c(x, d, m12, paste(d, m12, sep = "*")), collapse = " + ")))
-formula_ps <- as.formula(paste(d, "~", paste(x, collapse = " + ")))
-
-# outcome models
-glm_m0 <- glm(formula_m0, data = df)
-glm_m1x <- glm(formula_m1x, data = df)
-glm_m2x <- glm(formula_m2x, data = df)
-glm_ymodels_x <- list(glm_m0, glm_m1x, glm_m2x)
-
-# propensity score model
-glm_ps <- glm(formula_ps, family = binomial("logit"), data = df)
-
-paths_glm_x <- paths(a = d, y = y, m = mediators,
-                     glm_ymodels_x, ps_model = glm_ps, 
-                     data = df, nboot = 2000)
-
-
-pure <- paths_glm_x$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
+# # Store above models in a list:
+glm_ymodels_x <- list(glm_m0_x, glm_m1_x, glm_m2_x)
 
 
-hybrid <- paths_glm_x$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
+# Fit the paths model use impath():
+glm_x_paths <-
+  pathimp(
+    D = D,
+    Y = Y,
+    M = M,
+    Y_models = glm_ymodels_x,
+    D_model = glm_ps_x,
+    data = df,
+    boot_reps = 2000,
+    boot_conf_level = 0.95,
+    boot_seed = boot_seed,
+    boot_parallel = "no",
+    boot_cores = 1,
+    out_ipw = TRUE
+  )
+print(glm_x_paths)
 
-m_out2b <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "y")
+# Close log
+sink()
 
-m_out2 <- bind_rows(m_out2a, m_out2b)
-
-write_csv(m_out2, file = "table5-6.csv")
