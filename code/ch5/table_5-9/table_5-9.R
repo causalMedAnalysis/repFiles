@@ -54,7 +54,6 @@ sink(log_path, split = TRUE)
 #.             Imputation with NLSY.
 #-------------------------------------------------------------------------------
 
-
 #-------------------------------------------------#
 #  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
 #------------------------------------------------#
@@ -91,7 +90,6 @@ source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/head
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R")
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R")
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
-
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -179,7 +177,7 @@ Brader <-
 #------------------------------------------------------------------------------#
 
 #-----------------------------------------------------------------------#
-#           Example 1: Regression Imputation Without Interaction:      #
+#           Example 1: Regression Imputation Without Interaction      #
 #---------------------------------------------------------------------#
 
 # Specify outcome models:
