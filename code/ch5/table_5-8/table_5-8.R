@@ -1,151 +1,298 @@
-###Table 5.8###
+#----------Preliminaries----------#
+rm(list = ls())
+chapter <- "ch5"
+title <- "table_5-8"
 
-rm(list=ls())
+# Specify the root directory:
+dir_root <- "Please Change to Your Local Directory" 
 
-packages<-c("tidyverse", "margins", "mediation", "foreach", "doParallel", "doRNG")
+# Define subdirectories for logs and figures:
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
+dir_tab <- paste0(dir_root, "/table/", chapter)
 
-for (package.i in packages) {
-  suppressPackageStartupMessages(library(package.i, character.only=TRUE))
+# Ensure all necessary directories exist under your root folder，
+# if not, the function will create folders for you:
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
 }
-source("utils.R")
 
-# devtools::install_github("xiangzhou09/paths")
-library(paths)
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+create_dir_if_missing(dir_fig)
+create_dir_if_missing(dir_tab)
 
-##office
-datadir <- "../../data/" 
-logdir <- "../../code/ch5/_LOGS/"
+# Open log
+sink(log_path, split = TRUE)
 
-##input data
-load("Brader_et_al2008.RData")
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-# function for demeaning
-demean <- function(x) x - mean(x, na.rm = TRUE)
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-# data preprocessing
-Brader2 <- Brader %>%
-  dplyr::select(immigr, emo, p_harm, tone_eth, ppage, ppeducat, ppgender, ppincimp) %>% na.omit() %>%
-  mutate(immigr = as.numeric(scale(4 - immigr)),
-         hs = (ppeducat == "high school"),
-         sc = (ppeducat == "some college"),
-         ba = (ppeducat == "bachelor's degree or higher"),
-         female = (ppgender == "female")) %>%
-  mutate_at(vars(emo, p_harm, ppage, female, hs, sc, ba, ppincimp), demean)
+# Script:      .../code/ch5/table_5-8.R
 
-summary(Brader2)
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Brader_et_al2008/Brader_et_al2008.RData
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R
 
-d <- "tone_eth"
-m1 <- "p_harm"
-m2 <- "emo"
-y <- "immigr"
-x <- c("ppage", "female", "hs", "sc", "ba", "ppincimp")
+# Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
 
-df <- Brader2
-m12 <- c(m1, m2)
+# Description: Replicates Chapter 5, Table 5.6: Total and Path-Specific Effects 
+#              of College Attendance on CES-D Scores as Estimated using Regression 
+#.             Imputation with NLSY.
+#-------------------------------------------------------------------------------
 
-## linear model estimator w/o exposure-mediator interaction
 
-linmed_m1 <-  linmed(df, d, m1, y, x)
-linmed_m12 <-  linmed(df, d, m12, y, x)
+#-------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
+#------------------------------------------------#
 
-decomp_linmed <- c(ATE = linmed_m1$ATE,
-                   AY = linmed_m12$NDE,
-                   AM2Y = linmed_m1$NDE - linmed_m12$NDE,
-                   AM1Y = linmed_m1$NIE)
+# The following packages are required for replicate results:
+packages <-
+  c(
+    "tidyverse", 
+    "margins", 
+    "mediation", 
+    "foreach", 
+    "doParallel", 
+    "doRNG",
+    "paths"
+  )
 
-## linear model estimator w/ exposure-mediator interactions
+# Below function will automatically download the package you need,
+# otherwise simply load the package:
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {  
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)  
+    }
+    library(pkg, character.only = TRUE)  
+  }
+}
 
-linmedx_m1 <-  linmedx(df, d, m1, y, x)
-linmedx_m12 <-  linmedx(df, d, m12, y, x)
+install_and_load(packages)
 
-decomp_linmedx <- c(ATE = linmedx_m1$ATE,
-                    AY = linmedx_m12$NDE,
-                    AM2Y = linmedx_m1$NDE - linmedx_m12$NDE,
-                    AM1Y = linmedx_m1$NIE)
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
 
-## IPW estimator
+# helper functions:
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R")
 
-ipwmed_m1 <- ipwmed(df, d, m1, y, x)
-ipwmed_m12 <- ipwmed(df, d, m12, y, x)
 
-decomp_ipwmed <- c(ATE = ipwmed_m1$ATE,
-                   AY = ipwmed_m12$NDE,
-                   AM2Y = ipwmed_m1$NDE - ipwmed_m12$NDE,
-                   AM1Y = ipwmed_m1$NIE)
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "immigr"
 
-# summary of point estimates
+# exposure
+D <- "tone_eth"
 
-est_m <- list(decomp_linmed, decomp_linmedx, decomp_ipwmed) %>%
-  map(unlist) %>%
-  bind_rows() %>%
-  t() %>% 
-  `colnames<-`( c("^lma", "^lmi", "^ipw"))
+# mediators
+M1 <- "p_harm"
+M2 <- "emo"
+M <- 
+  list(
+    M1,
+    M2
+  )
 
-## Bootstrap SEs for linmed, linmed, and ipwmed
+# baseline confounder(s)
+C <- c(
+  "ppage", 
+  "female", 
+  "hs", 
+  "sc", 
+  "ba", 
+  "ppincimp"
+)
 
-# setup parallel computing cluster
-ncores <- parallel::detectCores()-1
-my.cluster <- parallel::makeCluster(ncores,type="PSOCK")
-doParallel::registerDoParallel(cl=my.cluster)
-clusterExport(cl=my.cluster, list("linmed", "linmedx", "ipwmed"), envir=environment())
-registerDoRNG(3308004)
+# key variables
+key_vars <- c(
+  "immigr", # unstandardized version of Y
+  D,
+  unlist(M),
+  C
+)
 
+# number of bootstrap replications
 nboot <- 2000
 
-m_boot <- foreach(i=1:nboot, .combine=cbind) %dopar% {
-  
-  boot_data <- Brader2[sample(nrow(Brader2), nrow(Brader2), replace=TRUE),]
-  
-  boot_linmed_m1 <- linmed(boot_data, d, m1, y, x)
-  
-  boot_linmedx_m1 <- linmedx(boot_data, d, m1, y, x)
-  
-  boot_ipwmed_m1 <- ipwmed(boot_data, d, m1, y, x)
-  
-  boot_linmed_m12 <- linmed(boot_data, d, m12, y, x)
-  
-  boot_linmedx_m12 <- linmedx(boot_data, d, m12, y, x)
-  
-  boot_ipwmed_m12 <- ipwmed(boot_data, d, m12, y, x)
-  
-  decomp_linmed <- c(ATE = boot_linmed_m1$ATE,
-                     AY = boot_linmed_m12$NDE,
-                     AM2Y = boot_linmed_m1$NDE - boot_linmed_m12$NDE,
-                     AM1Y = boot_linmed_m1$NIE)
-  
-  decomp_linmedx <- c(ATE = boot_linmedx_m1$ATE,
-                      AY = boot_linmedx_m12$NDE,
-                      AM2Y = boot_linmedx_m1$NDE - boot_linmedx_m12$NDE,
-                      AM1Y = boot_linmedx_m1$NIE)
-  
-  decomp_ipwmed <- c(ATE = boot_ipwmed_m1$ATE,
-                     AY = boot_ipwmed_m12$NDE,
-                     AM2Y = boot_ipwmed_m1$NDE - boot_ipwmed_m12$NDE,
-                     AM1Y = boot_ipwmed_m1$NIE)
-  
-  list(decomp_linmed,
-       decomp_linmedx,
-       decomp_ipwmed)
-}
+# set seed:
+boot_seed <- 3308004
 
-stopCluster(my.cluster)
-rm(my.cluster)
+#-----------------------------#
+#        PREPARE DATA         #
+#-----------------------------#
 
-clnms <- expand_grid(method = c("linmed", "linmedx", "ipwmed"), estimand = c("ATE", "AY", "AM2Y", "AM1Y")) %>% unite("") %>% unlist()
+# Load the data:
 
-m_boot_mat <- m_boot %>% 
-  map(unlist) %>% 
-  unlist() %>% 
-  matrix(ncol = 12, byrow = TRUE) %>% 
-  `colnames<-`(clnms)
+temp_file <- tempfile() # define a placeholder to store the data
 
-m_out <- apply(m_boot_mat, 2, quantile, probs = c(0.025, 0.975)) %>% 
-  t() %>% 
-  as_tibble() %>%
-  bind_cols(est = as.numeric(est_m), .) %>% 
-  mutate_all( ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", `2.5%`, ", ", `97.5%`, ")")) %>% 
-  mutate(out = paste(est, intv), name = clnms) %>% 
-  dplyr::select(name, est, `2.5%`, `97.5%`, out)
+download.file(
+  "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Brader_et_al2008/Brader_et_al2008.RData", 
+  temp_file, 
+  mode = "wb")
 
-write_csv(m_out, file = "table5-8.csv")
+load(temp_file)
+
+# Process the data:
+Brader <- 
+  Brader %>%
+  dplyr::select(
+    immigr, 
+    emo, 
+    p_harm, 
+    tone_eth, 
+    ppage, 
+    ppeducat, 
+    ppgender, 
+    ppincimp) %>% 
+  na.omit() %>%
+  mutate(
+    immigr = as.numeric(scale(4 - immigr)),
+    hs = (ppeducat == "high school"),
+    sc = (ppeducat == "some college"),
+    ba = (ppeducat == "bachelor's degree or higher"),
+    female = (ppgender == "female")) %>%
+  mutate_at(
+    vars(emo, p_harm, ppage, female, hs, sc, ba, ppincimp), 
+    ~ . - mean(., na.rm = TRUE)  
+  )
+
+#------------------------------------------------------------------------------#
+#                            REPLICATE TABLE 5.8.                              #
+#------------------------------------------------------------------------------#
+
+#------------------------------------------------------------#
+#           Example 1: Without Interaction:                 #
+#----------------------------------------------------------#
+
+LinMod <-
+  linpath(
+    data = Brader,
+    D = D,
+    M = M,
+    Y = Y,
+    C = C,
+    boot = TRUE,
+    boot_reps = 2000,
+    boot_parallel = TRUE,
+    boot_seed = boot_seed
+  )
+
+#--------------------------------------------------------#
+#          Example 2: With Interaction:                 #
+#------------------------------------------------------#
+LinModX <-
+  linpath(
+    data = Brader,
+    D = D,
+    M = M,
+    Y = Y,
+    C = C,
+    boot = TRUE,
+    boot_reps = 2000,
+    boot_parallel = TRUE,
+    interaction_DM = TRUE,
+    boot_seed = boot_seed
+  )
+
+#--------------------------------------------------------#
+#         Example 3: Inverse Probability Weighting      #
+#------------------------------------------------------#
+
+IPW <- 
+  ipwpath(
+    data = Brader,
+    D = D,
+    M = M,
+    Y = Y,
+    C = C,
+    boot = TRUE,
+    boot_reps = 2000,
+    boot_parallel = TRUE,
+    boot_seed = boot_seed
+  )
+
+#------------------------------------#
+#        GENERATE FINAL TABLE        #
+#-----------------------------------#
+
+# Create the master dataframe:
+master <- data.frame(
+  param = c("ATE(1,0)", paste0("PSE_{", names(LinMod$PSE), "}(1,0)")),
+  
+  # Linear Models: Version 1
+  LinMod_est     = c(LinMod$ATE, LinMod$PSE),
+  LinMod_ci_low  = c(LinMod$ci_ATE[1], LinMod$ci_PSE[, 1]),
+  LinMod_ci_high = c(LinMod$ci_ATE[2], LinMod$ci_PSE[, 2]),
+  
+  # Linear Models: Version 2
+  LinModX_est     = c(LinModX$ATE, LinModX$PSE),
+  LinModX_ci_low  = c(LinModX$ci_ATE[1], LinModX$ci_PSE[, 1]),
+  LinModX_ci_high = c(LinModX$ci_ATE[2], LinModX$ci_PSE[, 2]),
+  
+  # IPW Estimators
+  IPW_est     = c(IPW$ATE, IPW$PSE),
+  IPW_ci_low  = c(IPW$ci_ATE[1], IPW$ci_PSE[, 1]),
+  IPW_ci_high = c(IPW$ci_ATE[2], IPW$ci_PSE[, 2])
+) %>%
+  pivot_longer(
+    cols      = -param, 
+    names_to  = "model", 
+    values_to = "value"
+  ) %>%
+  separate(
+    model, 
+    into  = c("prefix", "stat"), 
+    sep   = "_", 
+    extra = "merge"
+  ) %>%
+  pivot_wider(
+    names_from  = stat, 
+    values_from = value
+  ) %>%
+  mutate(
+    final_value = paste0(
+      sprintf("%.3f", est), 
+      " [", sprintf("%.3f", ci_low), ", ", sprintf("%.3f", ci_high), "]"
+    )
+  ) %>%
+  dplyr::select(param, prefix, final_value) %>%
+  pivot_wider(
+    names_from  = prefix, 
+    values_from = final_value
+  )
+colnames(master) <- c(
+  "Estimand",
+  "Additive Linear Model(LinMod)",
+  "LinMod with D x M Interactions",
+  "Inverse Probability Weighting")
+
+# Display the cleaned table
+width_curr <- getOption("width")
+options(width = 300)
+print(master)
+write_csv(master, paste0(dir_tab,"/table5_8.csv"))
+
+# Close log
+sink()
+
