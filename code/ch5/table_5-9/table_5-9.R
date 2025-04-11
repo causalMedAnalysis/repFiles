@@ -1,185 +1,347 @@
-###Table 5.9###
+#----------Preliminaries----------#
+rm(list = ls())
+chapter <- "ch5"
+title <- "table_5-9"
 
-rm(list=ls())
+# Specify the root directory:
+dir_root <- "Please Change to Your Local Directory" 
 
-packages<-c("tidyverse", "margins", "mediation", "foreach", "doParallel", "doRNG")
+# Define subdirectories for logs and figures:
+dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
+log_path <- paste0(dir_log, "/", title, "_log.txt")
+dir_fig <- paste0(dir_root, "/figures/", chapter)
+dir_tab <- paste0(dir_root, "/table/", chapter)
 
-for (package.i in packages) {
-  suppressPackageStartupMessages(library(package.i, character.only=TRUE))
+# Ensure all necessary directories exist under your root folder，
+# if not, the function will create folders for you:
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
 }
-source("utils.R")
 
-# devtools::install_github("xiangzhou09/paths")
-library(paths)
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+create_dir_if_missing(dir_fig)
+create_dir_if_missing(dir_tab)
 
-##office
-datadir <- "../../data/" 
-logdir <- "../../code/ch5/_LOGS/"
+# Open log
+sink(log_path, split = TRUE)
 
-##input data
-load("Brader_et_al2008.RData")
+#-------------------------------------------------------------------------------
+# Causal Mediation Analysis Replication Files
 
-# function for demeaning
-demean <- function(x) x - mean(x, na.rm = TRUE)
+# GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-# data preprocessing
-Brader2 <- Brader %>%
-  dplyr::select(immigr, emo, p_harm, tone_eth, ppage, ppeducat, ppgender, ppincimp) %>% na.omit() %>%
-  mutate(immigr = as.numeric(scale(4 - immigr)),
-         hs = (ppeducat == "high school"),
-         sc = (ppeducat == "some college"),
-         ba = (ppeducat == "bachelor's degree or higher"),
-         female = (ppgender == "female")) %>%
-  mutate_at(vars(emo, p_harm, ppage, female, hs, sc, ba, ppincimp), demean)
+# Script:      .../code/ch5/table_5-8.R
 
-summary(Brader2)
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Brader_et_al2008/Brader_et_al2008.RData
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R
+#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R
 
-d <- "tone_eth"
-m1 <- "p_harm"
-m2 <- "emo"
-y <- "immigr"
-x <- c("ppage", "female", "hs", "sc", "ba", "ppincimp")
+# Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
 
-df <- Brader2
-m12 <- c(m1, m2)
+# Description: Replicates Chapter 5, Table 5.6: Total and Path-Specific Effects 
+#              of College Attendance on CES-D Scores as Estimated using Regression 
+#.             Imputation with NLSY.
+#-------------------------------------------------------------------------------
 
-set.seed(02138)
 
-##########################################
-## RI without interactions
-##########################################
+#-------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
+#------------------------------------------------#
 
-mediators <- list(m1, m2)
+# The following packages are required for replicate results:
+packages <-
+  c(
+    "tidyverse", 
+    "paths"
+  )
 
-formula_m0 <- as.formula(paste(y, "~", paste(c(x, d), collapse = " + ")))
-formula_m1 <- as.formula(paste(y, "~", paste(c(x, d, m1), collapse = " + ")))
-formula_m2 <- as.formula(paste(y, "~", paste(c(x, d, m1, m2), collapse = " + ")))
+# Below function will automatically download the package you need,
+# otherwise simply load the package:
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {  
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)  
+    }
+    library(pkg, character.only = TRUE)  
+  }
+}
 
-# outcome models
-glm_m0 <- glm(formula_m0, data = df)
-glm_m1 <- glm(formula_m1, data = df)
-glm_m2 <- glm(formula_m2, data = df)
+install_and_load(packages)
+
+#-----------------------------#
+#  LOAD CAUSAL MED FUNCTIONS  #
+#-----------------------------#
+
+# helper functions:
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R")
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
+
+
+#------------------#
+#  SPECIFICATIONS  #
+#------------------#
+# outcome
+Y <- "immigr"
+
+# exposure
+D <- "tone_eth"
+
+# mediators
+M1 <- "p_harm"
+M2 <- "emo"
+M <- 
+  list(
+    M1,
+    M2
+  )
+
+# baseline confounder(s)
+C <- c(
+  "ppage", 
+  "female", 
+  "hs", 
+  "sc", 
+  "ba", 
+  "ppincimp"
+)
+
+# key variables
+key_vars <- c(
+  "immigr", # unstandardized version of Y
+  D,
+  unlist(M),
+  C
+)
+
+# number of bootstrap replications
+nboot <- 2000
+
+# set seed:
+boot_seed <- 02138
+
+#-----------------------------#
+#        PREPARE DATA         #
+#-----------------------------#
+
+# Load the data:
+
+temp_file <- tempfile() # define a placeholder to store the data
+
+download.file(
+  "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Brader_et_al2008/Brader_et_al2008.RData", 
+  temp_file, 
+  mode = "wb")
+
+load(temp_file)
+
+# Process the data:
+Brader <- 
+  Brader %>%
+  dplyr::select(
+    immigr, 
+    emo, 
+    p_harm, 
+    tone_eth, 
+    ppage, 
+    ppeducat, 
+    ppgender, 
+    ppincimp) %>% 
+  na.omit() %>%
+  mutate(
+    immigr = as.numeric(scale(4 - immigr)),
+    hs = (ppeducat == "high school"),
+    sc = (ppeducat == "some college"),
+    ba = (ppeducat == "bachelor's degree or higher"),
+    female = (ppgender == "female")) %>%
+  mutate_at(
+    vars(emo, p_harm, ppage, female, hs, sc, ba, ppincimp), 
+    ~ . - mean(., na.rm = TRUE)  
+  )
+
+#------------------------------------------------------------------------------#
+#                            REPLICATE TABLE 5.9                              #
+#------------------------------------------------------------------------------#
+
+#-----------------------------------------------------------------------#
+#           Example 1: Regression Imputation Without Interaction:      #
+#---------------------------------------------------------------------#
+
+# Specify outcome models:
+# E(Y|D,C):
+glm_m0 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth, 
+  data = Brader
+)
+
+# E(Y|D,C,M1)
+glm_m1 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth + p_harm, 
+  data = Brader
+)
+
+# E(Y|D,C,M1,M2)
+glm_m2 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth + p_harm + emo, 
+  data = Brader
+)
+
+# Combine all models into a list
 glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
 
-paths_glm <- paths(a = d, y = y, m = mediators,
-                   glm_ymodels, data = df, nboot = 2000)
-
-pure <- paths_glm$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
-  
-  
-hybrid <- paths_glm$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
-
-m_out2a <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "n")
+# Fit the Paths Model:
+Paths_NoInteraction <-
+  pathimp(
+    D = D,
+    Y = Y,
+    M = M,
+    Y_models = glm_ymodels,
+    D_model = NULL,
+    data = Brader,
+    boot_reps = 2000,
+    boot_seed = boot_seed,
+    boot_parallel = "no",
+    out_ipw = FALSE
+  )$summary_df
 
 
-##########################################
-## RI with D-M interactions
-##########################################
+#-----------------------------------------------------------------#
+#       Example 2: Regression Imputation With D x M Interaction   #
+#-----------------------------------------------------------------#
 
-formula_m0 <- as.formula(paste(y, "~", paste(c(x, d), collapse = " + ")))
-formula_m1x <- as.formula(paste(y, "~", paste(c(x, d, m1, paste(d, m1, sep = "*")), collapse = " + ")))
-formula_m2x <- as.formula(paste(y, "~", paste(c(x, d, m12, paste(d, m12, sep = "*")), collapse = " + ")))
+# Specify outcome models:
+# E(Y|D,C):
+glm_m0 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth, 
+  data = Brader
+)
 
-# outcome models
-glm_m0 <- glm(formula_m0, data = df)
-glm_m1x <- glm(formula_m1x, data = df)
-glm_m2x <- glm(formula_m2x, data = df)
-glm_ymodels_x <- list(glm_m0, glm_m1x, glm_m2x)
+# E(Y|D,C,M1)
+glm_m1 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth +
+    p_harm + tone_eth * p_harm, 
+  data = Brader
+)
 
-paths_glm_x <- paths(a = d, y = y, m = mediators,
-                     glm_ymodels_x, data = df, nboot = 2000)
+# E(Y|D,C,M1,M2)
+glm_m2 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth +
+    p_harm + emo + tone_eth * p_harm + tone_eth * emo, 
+  data = Brader
+)
 
-pure <- paths_glm_x$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
+# Combine all models into a list
+glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
+
+# Fit the Paths Model:
+Paths_DMInteraction <-
+  pathimp(
+    D = D,
+    Y = Y,
+    M = M,
+    Y_models = glm_ymodels,
+    D_model = NULL,
+    data = Brader,
+    boot_reps = 2000,
+    round_decimal = 3,
+    boot_parallel = "no",
+    boot_seed = boot_seed,
+    out_ipw = FALSE
+  )$summary_df
+
+#----------------------------------------------------------------------#
+#       Example 3: Regression Imputation With D x {M, C} Interaction   #
+#----------------------------------------------------------------------#
+
+# Specify outcome models:
+# E(Y|D,C):
+glm_m0 <- glm(
+  immigr ~  ppage + female + hs + sc + ba + ppincimp + tone_eth + 
+    tone_eth * ppage + tone_eth * female + tone_eth * hs + 
+    tone_eth * sc + tone_eth * ba + tone_eth * ppincimp, 
+  data = Brader
+)
+
+# E(Y|D,C,M1)
+glm_m1 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth + 
+    p_harm + tone_eth * ppage + tone_eth * female + 
+    tone_eth * hs + tone_eth * sc + tone_eth * ba + 
+    tone_eth * ppincimp + tone_eth * p_harm, 
+  data = Brader
+)
+
+# E(Y|D,C,M1,M2)
+glm_m2 <- glm(
+  immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth + 
+    p_harm + emo + tone_eth * ppage + tone_eth * female + 
+    tone_eth * hs + tone_eth * sc + tone_eth * ba + 
+    tone_eth * ppincimp + tone_eth * p_harm + tone_eth * emo,
+  data = Brader
+)
+
+# Combine all models into a list
+glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
+
+# Fit the Paths Model:
+Paths_DMCInteraction <-
+  pathimp(
+    D = D,
+    Y = Y,
+    M = M,
+    Y_models = glm_ymodels,
+    D_model = NULL,
+    data = Brader,
+    boot_reps = 2000,
+    boot_parallel = "no",
+    boot_seed = boot_seed,
+    out_ipw = FALSE
+  )$summary_df
+
+#-----------------------------#
+#   GENERATE FINAL TABLE      #
+#-----------------------------#
+
+master <-
+  reduce(
+    list(
+      Paths_NoInteraction %>% dplyr::select(-estimator),
+      Paths_DMInteraction %>% dplyr::select(-estimator),
+      Paths_DMCInteraction %>% dplyr::select(-estimator)
+    ),
+    left_join,
+    by = "estimand"
+  )
+colnames(master) <- c(
+  "estimand",
+  "Outcome Models without Interactions",
+  "Outcome Models with D x M Interactions",
+  "Outcome Models with D x {M, C} Interactions"
+)
+write_csv(master, paste0(dir_tab,"/table5_9.csv"))
 
 
-hybrid <- paths_glm_x$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
-
-m_out2b <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "x")
-
-##########################################
-## RI with D-M and D-C interactions
-##########################################
-
-formula_m0xx <- as.formula(paste(y, "~", paste(c(x, d, paste(d, x, sep = "*")), collapse = " + ")))
-formula_m1xx <- as.formula(paste(y, "~", paste(c(x, d, m1, paste(d, x, sep = "*"),
-                                                 paste(d, m1, sep = "*")), collapse = " + ")))
-formula_m2xx <- as.formula(paste(y, "~", paste(c(x, d, m12, paste(d, x, sep = "*"),
-                                                 paste(d, m12, sep = "*")), collapse = " + ")))
-
-# outcome models
-glm_m0xx <- glm(formula_m0xx, data = df)
-glm_m1xx <- glm(formula_m1xx, data = df)
-glm_m2xx <- glm(formula_m2xx, data = df)
-glm_ymodels_xx <- list(glm_m0xx, glm_m1xx, glm_m2xx)
-
-paths_glm_xx <- paths(a = d, y = y, m = mediators,
-                     glm_ymodels_xx,  data = df, nboot = 2000)
-
-pure <- paths_glm_xx$pure %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
 
 
-hybrid <- paths_glm_xx$hybrid %>% 
-  filter(decomposition == "Type I") %>% 
-  mutate(estimand = factor(estimand, levels = c("total", "direct", "via M2", "via M1"),
-                           labels = c("ATE", "AY", "AM2Y", "AM1Y"))) %>% 
-  rename(est = estimate) %>% 
-  dplyr::select(-decomposition, -se, -p) %>% 
-  mutate_at(c("est", "lower", "upper"),  ~ round(.x, digits = 3)) %>% 
-  mutate(intv = paste0("(", lower, ", ", upper, ")"))
 
-m_out2c <- bind_rows(pure, hybrid) %>% 
-  mutate(estimator = factor(estimator, levels = c("pure", "hybrid"))) %>% 
-  arrange(estimator, estimand) %>% 
-  mutate(out = paste(est, intv)) %>% 
-  add_column(interactions = "xx")
 
-m_out2 <- bind_rows(m_out2a, m_out2b, m_out2c) %>% 
-  filter(estimator == "pure")
 
-save.image(file = "table5-9.RData")
 
-write_csv(m_out2, file = "table5-9.csv")
+
+
+
 
