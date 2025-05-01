@@ -10,8 +10,8 @@ dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
-# Ensure all necessary directories exist under your root folder，
-# if not, the following function will create folders for you:
+# Ensure all necessary directories exist under your root folder
+# if not, the following function will create folders for you
 
 create_dir_if_missing <- function(dir) {
   if (!dir.exists(dir)) {
