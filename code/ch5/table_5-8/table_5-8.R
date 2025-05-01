@@ -58,7 +58,7 @@ sink(log_path, split = TRUE)
 #  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
 #------------------------------------------------#
 
-# The following packages are required for replicate results:
+# The following packages are required to replicate results:
 packages <-
   c(
     "tidyverse", 
