@@ -4,16 +4,14 @@ chapter <- "ch5"
 title <- "table_5-9"
 
 # Specify the root directory:
-dir_root <- "Please Change to Your Local Directory" 
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
-dir_tab <- paste0(dir_root, "/table/", chapter)
 
-# Ensure all necessary directories exist under your root folder，
-# if not, the function will create folders for you:
+# Ensure all necessary directories exist under your root folder
+# If not, the function below will create folders for you
 
 create_dir_if_missing <- function(dir) {
   if (!dir.exists(dir)) {
@@ -26,47 +24,41 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
-create_dir_if_missing(dir_fig)
-create_dir_if_missing(dir_tab)
 
-# Open log
-sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
 # GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-# Script:      .../code/ch5/table_5-8.R
+# Script:      .../code/ch5/table_5-9.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Brader_et_al2008/Brader_et_al2008.RData
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R
 
-# Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
+# Outputs:     .../code/ch5/_LOGS/table_5-9_log.txt
 
-# Description: Replicates Chapter 5, Table 5.6: Total and Path-Specific Effects 
-#              of College Attendance on CES-D Scores as Estimated using Regression 
-#.             Imputation with NLSY.
+# Description: Replicates Chapter 5, Table 5.9: Total and Path-Specific Effects 
+#              of Negative Media Framing on Support for Immigration as Estimated 
+#              from the Regression Imputation Approach.
 #-------------------------------------------------------------------------------
+
 
 #-------------------------------------------------#
 #  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
 #------------------------------------------------#
 
-# The following packages are required for replicate results:
+# The following packages are required to replicate results
 packages <-
   c(
     "tidyverse", 
     "paths"
   )
 
-# Below function will automatically download the package you need,
-# otherwise simply load the package:
+# Function below will automatically download the packages you need
+# Otherwise simply load the packages
+
 install_and_load <- function(pkg_list) {
   for (pkg in pkg_list) {
     if (!requireNamespace(pkg, quietly = TRUE)) {  
@@ -79,21 +71,19 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
+
 #-----------------------------#
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 
-# helper functions:
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R")
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
+
 
 #------------------#
 #  SPECIFICATIONS  #
 #------------------#
+
 # outcome
 Y <- "immigr"
 
@@ -109,7 +99,7 @@ M <-
     M2
   )
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "ppage", 
   "female", 
@@ -117,7 +107,7 @@ C <- c(
   "sc", 
   "ba", 
   "ppincimp"
-)
+  )
 
 # key variables
 key_vars <- c(
@@ -125,7 +115,7 @@ key_vars <- c(
   D,
   unlist(M),
   C
-)
+  )
 
 # number of bootstrap replications
 nboot <- 2000
@@ -137,8 +127,7 @@ boot_seed <- 02138
 #        PREPARE DATA         #
 #-----------------------------#
 
-# Load the data:
-
+# Load the data
 temp_file <- tempfile() # define a placeholder to store the data
 
 download.file(
@@ -148,7 +137,7 @@ download.file(
 
 load(temp_file)
 
-# Process the data:
+# Process the data
 Brader <- 
   Brader %>%
   dplyr::select(
@@ -172,16 +161,18 @@ Brader <-
     ~ . - mean(., na.rm = TRUE)  
   )
 
+
 #------------------------------------------------------------------------------#
-#                            REPLICATE TABLE 5.9                              #
+#                            REPLICATE TABLE 5.9                               #
 #------------------------------------------------------------------------------#
 
-#-----------------------------------------------------------------------#
-#           Example 1: Regression Imputation Without Interaction      #
-#---------------------------------------------------------------------#
+#-------------------------------------------------------------#
+#           Regression Imputation Without Interactions        #
+#-------------------------------------------------------------#
 
-# Specify outcome models:
-# E(Y|D,C):
+# Specify the outcome models
+
+# E(Y|D,C)
 glm_m0 <- glm(
   immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth, 
   data = Brader
@@ -199,10 +190,10 @@ glm_m2 <- glm(
   data = Brader
 )
 
-# Combine all models into a list
+# Combine outcome models into a list
 glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
 
-# Fit the Paths Model:
+# Compute effect estimates
 Paths_NoInteraction <-
   pathimp(
     D = D,
@@ -213,17 +204,17 @@ Paths_NoInteraction <-
     data = Brader,
     boot_reps = 2000,
     boot_seed = boot_seed,
-    boot_parallel = "no",
+    boot_parallel = "multicore",
     out_ipw = FALSE
   )$summary_df
 
+#---------------------------------------------------------------#
+#       Regression Imputation With D x M Interactions           #
+#---------------------------------------------------------------#
 
-#-----------------------------------------------------------------#
-#       Example 2: Regression Imputation With D x M Interaction   #
-#-----------------------------------------------------------------#
+# Specify outcome models
 
-# Specify outcome models:
-# E(Y|D,C):
+# E(Y|D,C)
 glm_m0 <- glm(
   immigr ~ ppage + female + hs + sc + ba + ppincimp + tone_eth, 
   data = Brader
@@ -243,10 +234,10 @@ glm_m2 <- glm(
   data = Brader
 )
 
-# Combine all models into a list
+# Combine outcome models into a list
 glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
 
-# Fit the Paths Model:
+# Compute effect estimates
 Paths_DMInteraction <-
   pathimp(
     D = D,
@@ -257,17 +248,18 @@ Paths_DMInteraction <-
     data = Brader,
     boot_reps = 2000,
     round_decimal = 3,
-    boot_parallel = "no",
+    boot_parallel = "multicore",
     boot_seed = boot_seed,
     out_ipw = FALSE
   )$summary_df
 
 #----------------------------------------------------------------------#
-#       Example 3: Regression Imputation With D x {M, C} Interaction   #
+#       Regression Imputation With D x {M, C} Interactions             #
 #----------------------------------------------------------------------#
 
-# Specify outcome models:
-# E(Y|D,C):
+# Specify outcome models
+
+# E(Y|D,C)
 glm_m0 <- glm(
   immigr ~  ppage + female + hs + sc + ba + ppincimp + tone_eth + 
     tone_eth * ppage + tone_eth * female + tone_eth * hs + 
@@ -293,10 +285,10 @@ glm_m2 <- glm(
   data = Brader
 )
 
-# Combine all models into a list
+# Combine outcome models into a list
 glm_ymodels <- list(glm_m0, glm_m1, glm_m2)
 
-# Fit the Paths Model:
+# Compute effect estimates
 Paths_DMCInteraction <-
   pathimp(
     D = D,
@@ -306,14 +298,15 @@ Paths_DMCInteraction <-
     D_model = NULL,
     data = Brader,
     boot_reps = 2000,
-    boot_parallel = "no",
+    boot_parallel = "multicore",
     boot_seed = boot_seed,
     out_ipw = FALSE
   )$summary_df
 
-#-----------------------------#
-#   GENERATE FINAL TABLE      #
-#-----------------------------#
+
+#------------------------#
+#   COLLATE RESULTS      #
+#------------------------#
 
 master <-
   reduce(
@@ -325,22 +318,19 @@ master <-
     left_join,
     by = "estimand"
   )
+
 colnames(master) <- c(
   "estimand",
   "Outcome Models without Interactions",
   "Outcome Models with D x M Interactions",
   "Outcome Models with D x {M, C} Interactions"
 )
-write_csv(master, paste0(dir_tab,"/table5_9.csv"))
 
+# Open log
+sink(log_path, split = TRUE)
 
+print(master)
 
-
-
-
-
-
-
-
-
+# Close log
+sink()
 
