@@ -40,7 +40,7 @@ create_dir_if_missing(dir_log)
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linpath.R
 #              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwpath.R
 
-# Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
+# Outputs:     .../code/ch5/_LOGS/table_5-8_log.txt
 
 # Description: Replicates Chapter 5, Table 5.8: Total and Path-Specific Effects 
 #              of Negative Media Framing on Support for Immigration as Estimated from 
