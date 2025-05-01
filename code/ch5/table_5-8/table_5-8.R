@@ -4,16 +4,14 @@ chapter <- "ch5"
 title <- "table_5-8"
 
 # Specify the root directory:
-dir_root <- "Please Change to Your Local Directory" 
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
-dir_tab <- paste0(dir_root, "/table/", chapter)
 
-# Ensure all necessary directories exist under your root folder，
-# if not, the function will create folders for you:
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
 
 create_dir_if_missing <- function(dir) {
   if (!dir.exists(dir)) {
@@ -26,11 +24,7 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
-create_dir_if_missing(dir_fig)
-create_dir_if_missing(dir_tab)
 
-# Open log
-sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
@@ -54,9 +48,9 @@ sink(log_path, split = TRUE)
 #-------------------------------------------------------------------------------
 
 
-#-------------------------------------------------#
-#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
-#------------------------------------------------#
+#---------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES  #
+#---------------------------------------------------#
 
 # The following packages are required to replicate results:
 packages <-
@@ -70,8 +64,9 @@ packages <-
     "paths"
   )
 
-# Below function will automatically download the package you need,
-# otherwise simply load the package:
+# Function below will automatically download the packages you need
+# Otherwise simply load the required packages
+
 install_and_load <- function(pkg_list) {
   for (pkg in pkg_list) {
     if (!requireNamespace(pkg, quietly = TRUE)) {  
@@ -84,11 +79,11 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
+
 #-----------------------------#
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 
-# helper functions:
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
@@ -99,6 +94,7 @@ source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/head
 #------------------#
 #  SPECIFICATIONS  #
 #------------------#
+
 # outcome
 Y <- "immigr"
 
@@ -114,7 +110,7 @@ M <-
     M2
   )
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "ppage", 
   "female", 
@@ -122,7 +118,7 @@ C <- c(
   "sc", 
   "ba", 
   "ppincimp"
-)
+  )
 
 # key variables
 key_vars <- c(
@@ -130,20 +126,20 @@ key_vars <- c(
   D,
   unlist(M),
   C
-)
+  )
 
 # number of bootstrap replications
 nboot <- 2000
 
-# set seed:
+# set seed
 boot_seed <- 3308004
+
 
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
 
-# Load the data:
-
+# Load the data
 temp_file <- tempfile() # define a placeholder to store the data
 
 download.file(
@@ -153,7 +149,7 @@ download.file(
 
 load(temp_file)
 
-# Process the data:
+# Process the data
 Brader <- 
   Brader %>%
   dplyr::select(
@@ -181,9 +177,9 @@ Brader <-
 #                            REPLICATE TABLE 5.8.                              #
 #------------------------------------------------------------------------------#
 
-#------------------------------------------------------------#
-#           Example 1: Without Interaction:                 #
-#----------------------------------------------------------#
+#-------------------------------------------------------#
+#     Linear Models Without D x M Interactions:         #
+#-------------------------------------------------------#
 
 LinMod <-
   linpath(
@@ -198,9 +194,10 @@ LinMod <-
     boot_seed = boot_seed
   )
 
-#--------------------------------------------------------#
-#          Example 2: With Interaction:                 #
-#------------------------------------------------------#
+#---------------------------------------------------#
+#     Linear Models With D x M Interactions:        #
+#---------------------------------------------------#
+
 LinModX <-
   linpath(
     data = Brader,
@@ -208,16 +205,16 @@ LinModX <-
     M = M,
     Y = Y,
     C = C,
+    interaction_DM = TRUE,
     boot = TRUE,
     boot_reps = 2000,
     boot_parallel = TRUE,
-    interaction_DM = TRUE,
     boot_seed = boot_seed
   )
 
-#--------------------------------------------------------#
-#         Example 3: Inverse Probability Weighting      #
-#------------------------------------------------------#
+#--------------------------------------------#
+#         Inverse Probability Weighting      #
+#--------------------------------------------#
 
 IPW <- 
   ipwpath(
@@ -232,29 +229,26 @@ IPW <-
     boot_seed = boot_seed
   )
 
-#------------------------------------#
-#        GENERATE FINAL TABLE        #
-#-----------------------------------#
+#-------------------------------#
+#        COLLATE RESULTS        #
+#-------------------------------#
 
-# Create the master dataframe:
+# Create the master dataframe
 master <- data.frame(
   param = c("ATE(1,0)", paste0("PSE_{", names(LinMod$PSE), "}(1,0)")),
   
-  # Linear Models: Version 1
   LinMod_est     = c(LinMod$ATE, LinMod$PSE),
   LinMod_ci_low  = c(LinMod$ci_ATE[1], LinMod$ci_PSE[, 1]),
   LinMod_ci_high = c(LinMod$ci_ATE[2], LinMod$ci_PSE[, 2]),
   
-  # Linear Models: Version 2
   LinModX_est     = c(LinModX$ATE, LinModX$PSE),
   LinModX_ci_low  = c(LinModX$ci_ATE[1], LinModX$ci_PSE[, 1]),
   LinModX_ci_high = c(LinModX$ci_ATE[2], LinModX$ci_PSE[, 2]),
   
-  # IPW Estimators
   IPW_est     = c(IPW$ATE, IPW$PSE),
   IPW_ci_low  = c(IPW$ci_ATE[1], IPW$ci_PSE[, 1]),
   IPW_ci_high = c(IPW$ci_ATE[2], IPW$ci_PSE[, 2])
-) %>%
+  ) %>%
   pivot_longer(
     cols      = -param, 
     names_to  = "model", 
@@ -281,17 +275,21 @@ master <- data.frame(
     names_from  = prefix, 
     values_from = final_value
   )
+
 colnames(master) <- c(
   "Estimand",
   "Additive Linear Model(LinMod)",
   "LinMod with D x M Interactions",
-  "Inverse Probability Weighting")
+  "Inverse Probability Weighting"
+  )
 
-# Display the cleaned table
+# Open log
+sink(log_path, split = TRUE)
+
+# Print table
 width_curr <- getOption("width")
 options(width = 300)
 print(master)
-write_csv(master, paste0(dir_tab,"/table5_8.csv"))
 
 # Close log
 sink()
