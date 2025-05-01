@@ -42,9 +42,9 @@ create_dir_if_missing(dir_log)
 
 # Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
 
-# Description: Replicates Chapter 5, Table 5.6: Total and Path-Specific Effects 
-#              of College Attendance on CES-D Scores as Estimated using Regression 
-#.             Imputation with NLSY.
+# Description: Replicates Chapter 5, Table 5.8: Total and Path-Specific Effects 
+#              of Negative Media Framing on Support for Immigration as Estimated from 
+#              Linear Models and Inverse Probability Weighting.
 #-------------------------------------------------------------------------------
 
 
