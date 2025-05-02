@@ -212,7 +212,7 @@ Paths_Model <-
     data = Brader,
     boot_reps = 2000,
     boot_seed = boot_seed,
-    boot_parallel = "multicore",
+    boot_parallel = "no",
     out_ipw = FALSE
   )
 
