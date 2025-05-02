@@ -204,7 +204,7 @@ Paths_NoInteraction <-
     data = Brader,
     boot_reps = 2000,
     boot_seed = boot_seed,
-    boot_parallel = "multicore",
+    boot_parallel = "no",
     out_ipw = FALSE
   )$summary_df
 
@@ -248,7 +248,7 @@ Paths_DMInteraction <-
     data = Brader,
     boot_reps = 2000,
     round_decimal = 3,
-    boot_parallel = "multicore",
+    boot_parallel = "no",
     boot_seed = boot_seed,
     out_ipw = FALSE
   )$summary_df
@@ -298,7 +298,7 @@ Paths_DMCInteraction <-
     D_model = NULL,
     data = Brader,
     boot_reps = 2000,
-    boot_parallel = "multicore",
+    boot_parallel = "no",
     boot_seed = boot_seed,
     out_ipw = FALSE
   )$summary_df
