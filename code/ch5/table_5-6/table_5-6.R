@@ -181,7 +181,7 @@ glm_paths <-
     data = df,
     boot_reps = 2000,
     boot_seed = boot_seed,
-    boot_parallel = "multicore",
+    boot_parallel = "no",
     round_decimal = 3,
     out_ipw = TRUE
   )
