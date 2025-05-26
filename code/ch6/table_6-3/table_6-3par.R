@@ -1,4 +1,5 @@
 rm(list = ls())
+
 library(survey)
 library(gbm)
 library(ranger)
@@ -11,14 +12,17 @@ library(dplyr)
 library(Hmisc)
 library(SuperLearner)
 library(scales)
-source("../ch5/utils.R")
+library(haven)
+
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+
 set.seed(02138)
 
-##office
-datadir <- "../../data/" 
-
 ##input data
-nlsy_raw <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
+nlsy_raw <- as.data.frame(read_stata(
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  )
+)
 
 a <- "att22"
 z <- "ever_unemp_age3539"
@@ -35,7 +39,6 @@ n <- nrow(df)
 ##########################################################
 # Formulas for a, z, y models
 ##########################################################
-
 
 # b(x, a, z,m) = E[Y|x, a, z, m]
 b_form <- as.formula(paste(y, " ~ ", paste(c(x, a, z, m), collapse= "+")))
@@ -97,7 +100,6 @@ df_u01 <- model.matrix(u_form, data = mutate(df, att22 = 0, ever_unemp_age3539 =
 df_u10 <- model.matrix(u_form, data = mutate(df, att22 = 1, ever_unemp_age3539 = 0))[, -1] %>% as_tibble()
 df_u11 <- model.matrix(u_form, data = mutate(df, att22 = 1, ever_unemp_age3539 = 1))[, -1] %>% as_tibble()
 
-  
 #################################################
 # Outcome model
 #################################################
@@ -293,7 +295,6 @@ out_df <- df %>%
                                           expression(paste("Direct Effect (", psi[`01`]-psi[`00`], ")")),
                                           expression(paste("via Household Income (", psi[`11`]-psi[`01`], ")")))))) 
 
-
 #################################################
 # Nonparametric Bootstrap
 #################################################
@@ -341,8 +342,7 @@ for (b in 1:B){
   dfi_u10 <- model.matrix(u_form, data = mutate(dfi, att22 = 1, ever_unemp_age3539 = 0))[, -1] %>% as_tibble()
   dfi_u11 <- model.matrix(u_form, data = mutate(dfi, att22 = 1, ever_unemp_age3539 = 1))[, -1] %>% as_tibble()
   
-  
-  #################################################
+    #################################################
   # Outcome model
   #################################################
   
@@ -549,27 +549,6 @@ out_df <- out_df %>%
     upper = apply(boots, 2, quantile, 0.975)
   )
 
-#################################################
-# Plot
-#################################################
-
-# set my ggplot theme
-mytheme <- theme_minimal(base_size = 18) + 
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5),
-        plot.caption = element_text(color = "grey30"))
-theme_set(mytheme)
-
-ggplot(out_df, aes(x = estimand, y = est, shape = estimator)) +
-  geom_pointrange(aes(ymin = lower,  ymax = upper),
-                  position = position_dodge(width = - 0.5), size = 1) +
-  geom_hline(yintercept = 0, linetype = 2) +
-  scale_shape("", labels = parse_format()) +
-  scale_color_discrete("", labels = parse_format()) +
-  scale_x_discrete("", labels = parse_format()) +
-  scale_y_continuous("Effects of College Attendance on Depression") +
-  coord_flip()
-
 table6_3par <-  out_df %>%
   mutate(lower = est - 1.96 * se, upper = est + 1.96 * se) %>% 
   mutate_at(c("est", "se", "lower", "upper"), ~ round(.x, digits = 3)) %>% 
@@ -578,6 +557,4 @@ table6_3par <-  out_df %>%
   dplyr::select(-lower, -upper, -intv) %>% 
   arrange(desc(estimand))
 
-write_csv(table6_3par, file = "table6-3par.csv")
-
-save.image(file = "table6-3par.RData")
+print(table6_3par)

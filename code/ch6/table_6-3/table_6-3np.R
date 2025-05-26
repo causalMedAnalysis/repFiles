@@ -1,4 +1,5 @@
 rm(list = ls())
+
 library(survey)
 library(gbm)
 library(ranger)
@@ -11,14 +12,17 @@ library(dplyr)
 library(Hmisc)
 library(SuperLearner)
 library(scales)
-source("../ch5/utils.R")
+library(haven)
+
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+
 set.seed(02138)
 
-##office
-datadir <- "../../data/" 
-
 ##input data
-nlsy_raw <- as.data.frame(readRDS(paste(datadir, "NLSY79/nlsy79BK_ed2.RDS", sep="")))
+nlsy_raw <- as.data.frame(read_stata(
+  file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
+  )
+)
 
 a <- "att22"
 z <- "ever_unemp_age3539"
@@ -35,7 +39,6 @@ n <- nrow(df)
 ##########################################################
 # Formulas for a, z, y models
 ##########################################################
-
 
 # b(x, a, z,m) = E[Y|x, a, z, m]
 b_form <- as.formula(paste(y, " ~ ", paste(c(x, a, z, m), collapse= "+")))
@@ -140,7 +143,7 @@ for(k in 1:K){
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
   )
-
+  
   
   #################################################
   # Treatment Models
@@ -257,7 +260,7 @@ for(k in 1:K){
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
   )
-
+  
   u_a1y_sl <- SuperLearner(
     Y          = df$dep_umod_a1y[-cf_fold[[k]]],
     X          = aux_u,
@@ -288,9 +291,8 @@ for(k in 1:K){
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
   )
   
-  
   df <- df %>% mutate(
-  
+    
     u0_a1n_fit =  predict.SuperLearner(u_a1n_sl, newdata = df_u0)$pred,
     u1_a1n_fit =  predict.SuperLearner(u_a1n_sl, newdata = df_u1)$pred,
     
@@ -320,7 +322,7 @@ for(k in 1:K){
     
     bqOz_a2n_fit = b00_fit * q00_fit +  b01_fit * q01_fit,
     bqOz_a2y_fit = b10_fit * q10_fit +  b11_fit * q11_fit,
-    )
+  )
   
   main_list[[k]] <- df[cf_fold[[k]], ]
 }
@@ -354,7 +356,7 @@ for (s in 1:S){
         a1 * (1 - a2) * v1_a2n_fit +
         (1 - a1) * a2 * v0_a2y_fit +
         (1 - a1) * (1 - a2) * v0_a2n_fit,
-
+      
       uqOz_fit = a1 * a2 * uqOz_yy_fit +
         a1 * (1 - a2) * uqOz_yn_fit +
         (1 - a1) * a2 * uqOz_ny_fit +
@@ -372,7 +374,7 @@ for (s in 1:S){
   main_df[main_df$att22 == a2, paste0("w2_", a1, a2)] <- trimQ(main_df[main_df$att22 == a2, paste0("w2_", a1, a2)])
   main_df[main_df$att22 == a2, paste0("w1_", a1, a2)] <- trimQ(main_df[main_df$att22 == a2, paste0("w1_", a1, a2)])
   main_df[main_df$att22 == a1, paste0("w0_", a1, a2)] <- trimQ(main_df[main_df$att22 == a1, paste0("w0_", a1, a2)])
-
+  
   main_df <- main_df %>%
     mutate(
       
@@ -382,13 +384,6 @@ for (s in 1:S){
         v_fit
     )
 }
-
-# set my ggplot theme
-mytheme <- theme_minimal(base_size = 18) + 
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5),
-        plot.caption = element_text(color = "grey30"))
-theme_set(mytheme)
 
 out_df <- main_df %>%
   mutate(eif_type1_ate = eif_11 - eif_00,
@@ -409,18 +404,6 @@ out_df <- main_df %>%
                                           expression(paste("Direct Effect (", psi[`01`]-psi[`00`], ")")),
                                           expression(paste("via Household Income (", psi[`11`]-psi[`01`], ")")))))) 
 
-ggplot(out_df, aes(x = estimand, y = est, shape = estimator)) +
-  geom_pointrange(aes(ymin = est - 1.96 * se,  ymax = est + 1.96 * se),
-                  position = position_dodge(width = - 0.5), size = 1) +
-  geom_hline(yintercept = 0, linetype = 2) +
-  scale_shape("", labels = parse_format()) +
-  scale_color_discrete("", labels = parse_format()) +
-  scale_x_discrete("", labels = parse_format()) +
-  scale_y_continuous("Effects of College Attendance on Depression") +
-  coord_flip()
-
-out_df[, c("est", "se")] %>% round(3)
-
 table6_3np <-  out_df %>%
   mutate(lower = est - 1.96 * se, upper = est + 1.96 * se) %>% 
   mutate_at(c("est", "se", "lower", "upper"), ~ round(.x, digits = 3)) %>% 
@@ -429,6 +412,4 @@ table6_3np <-  out_df %>%
   dplyr::select(-lower, -upper, -intv) %>% 
   arrange(desc(estimand))
 
-write_csv(table6_3np, file = "table6-3np.csv")
-
-save.image(file = "table6-3np.RData")
+print(table6_3np)
