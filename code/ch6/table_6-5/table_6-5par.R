@@ -1,4 +1,5 @@
 rm(list = ls())
+
 library(survey)
 library(gbm)
 library(ranger)
@@ -10,14 +11,18 @@ library(tidyverse)
 library(Hmisc)
 library(SuperLearner)
 library(scales)
-source("../ch5/utils.R")
+
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+
 set.seed(02138)
 
-##office
-datadir <- "../../data/"
-
 ##input data
-tatar <- readRDS(paste(datadir, "Tatar/tatar.rds", sep=""))
+tatar<-
+  as.data.frame(
+    readRDS(
+      url("https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Tatar/tatar.rds")
+    )
+  )
 
 # variable names
 x <- c("kulak", "prosoviet_pre", "religiosity_pre", "land_pre",
@@ -128,7 +133,6 @@ df <- df %>% mutate(
   w3_1110 = I(violence == 0)/p0_fit * 1 * 1 * p3_fit/(1 - p3_fit),
   w3_1111 = I(violence == 1)/p0_fit * 1 * 1 * 1,
 )
-
 
 #################################################
 # Outcome models
@@ -294,7 +298,6 @@ for (s in 1:S){
     )
 }
 
-
 out_df <- df %>%
   mutate(
          eif_type1_ate = eif_1111 - eif_0000,
@@ -407,7 +410,6 @@ for (b in 1:B){
     w3_1110 = I(violence == 0)/p0_fit * 1 * 1 * p3_fit/(1 - p3_fit),
     w3_1111 = I(violence == 1)/p0_fit * 1 * 1 * 1,
   )
-  
   
   #################################################
   # Outcome models
@@ -573,7 +575,6 @@ for (b in 1:B){
       )
   }
   
-  
   out_dfi <- dfi %>%
     mutate(
            eif_type1_ate = eif_1111 - eif_0000,
@@ -607,27 +608,6 @@ out_df <- out_df %>%
     upper = apply(boots, 2, quantile, 0.975)
   )
   
-#################################################
-# Plot
-#################################################
-
-# set my ggplot theme
-mytheme <- theme_minimal(base_size = 18) + 
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5),
-        plot.caption = element_text(color = "grey30"))
-theme_set(mytheme)
-
-ggplot(out_df, aes(x = estimand, y = est, shape = estimator)) +
-  geom_pointrange(aes(ymin = lower,  ymax = upper),
-                  position = position_dodge(width = - 0.5), size = 1) +
-  geom_hline(yintercept = 0, linetype = 2) +
-  scale_shape("", labels = parse_format()) +
-  scale_color_discrete("", labels = parse_format()) +
-  scale_x_discrete("", labels = parse_format()) +
-  scale_y_continuous("Effects of Ancestor Victimization on Regime Support") +
-  coord_flip()
-
 table6_5par <-  out_df %>%
   mutate(lower = est - 1.96 * se, upper = est + 1.96 * se) %>% 
   mutate_at(c("est", "se", "lower", "upper"), ~ round(.x, digits = 3)) %>% 
@@ -635,6 +615,4 @@ table6_5par <-  out_df %>%
   mutate(out = paste(est, intv)) %>% 
   dplyr::select(-lower, -upper, -intv) 
 
-write_csv(table6_5par, file = "table6-5par.csv")
-
-save.image(file = "table6-5par.RData")
+print(table6_5par)

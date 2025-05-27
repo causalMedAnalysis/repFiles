@@ -1,4 +1,5 @@
 rm(list = ls())
+
 library(survey)
 library(gbm)
 library(ranger)
@@ -10,14 +11,18 @@ library(tidyverse)
 library(Hmisc)
 library(SuperLearner)
 library(scales)
-source("../ch5/utils.R")
+
+source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+
 set.seed(02138)
 
-##office
-datadir <- "../../data/" 
-
 ##input data
-tatar <- readRDS(paste(datadir, "Tatar/tatar.rds", sep=""))
+tatar<-
+  as.data.frame(
+    readRDS(
+      url("https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Tatar/tatar.rds")
+    )
+  )
 
 # variable names
 x <- c("kulak", "prosoviet_pre", "religiosity_pre", "land_pre",
@@ -467,21 +472,14 @@ for (s in 1:S){
       !!sym(paste0("eif_", a1, a2, a3, a4)) := !!sym(paste0("w3_", a1, a2, a3, a4)) *
         (annex - !!sym(paste0("mu3fit_", a1, a2, a3, a4))) +
         !!sym(paste0("w2_", a1, a2, a3, a4)) * (!!sym(paste0("mu3fit_", a1, a2, a3, a4)) -
-                                              !!sym(paste0("mu2fit_", a1, a2, a3, a4))) +
+                                                  !!sym(paste0("mu2fit_", a1, a2, a3, a4))) +
         !!sym(paste0("w1_", a1, a2, a3, a4)) * (!!sym(paste0("mu2fit_", a1, a2, a3, a4)) -
-                                              !!sym(paste0("mu1fit_", a1, a2, a3, a4))) +
+                                                  !!sym(paste0("mu1fit_", a1, a2, a3, a4))) +
         !!sym(paste0("w0_", a1, a2, a3, a4)) * (!!sym(paste0("mu1fit_", a1, a2, a3, a4)) -
                                                   !!sym(paste0("mu0fit_", a1, a2, a3, a4))) +
         !!sym(paste0("mu0fit_", a1, a2, a3, a4))
     )
 }
-
-# set my ggplot theme
-mytheme <- theme_minimal(base_size = 18) + 
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5),
-        plot.caption = element_text(color = "grey30"))
-theme_set(mytheme)
 
 out_df <- main_df %>%
   mutate(eif_type1_ate = eif_1111 - eif_0000,
@@ -503,16 +501,6 @@ out_df <- main_df %>%
                                           expression(paste("via G2 Identity (", psi[`0111`]-psi[`0011`], ")")),
                                           expression(paste("via G1 Identity (", psi[`1111`]-psi[`0111`], ")")))))) 
 
-ggplot(out_df, aes(x = estimand, y = est, shape = estimator)) +
-  geom_pointrange(aes(ymin = est - 1.96 * se,  ymax = est + 1.96 * se),
-                  position = position_dodge(width = - 0.5), size = 1) +
-  geom_hline(yintercept = 0, linetype = 2) +
-  scale_shape("", labels = parse_format()) +
-  scale_color_discrete("", labels = parse_format()) +
-  scale_x_discrete("", labels = parse_format()) +
-  scale_y_continuous("Effects of Ancestor Victimization on Regime Support") +
-  coord_flip()
-
 table6_5np <-  out_df %>%
   mutate(lower = est - 1.96 * se, upper = est + 1.96 * se) %>% 
   mutate_at(c("est", "se", "lower", "upper"), ~ round(.x, digits = 3)) %>% 
@@ -520,6 +508,4 @@ table6_5np <-  out_df %>%
   mutate(out = paste(est, intv)) %>% 
   dplyr::select(-lower, -upper, -intv) 
 
-write_csv(table6_5np, file = "table6-5np.csv")
-
-save.image(file = "table6-5np.RData")
+print(table6_5np)
