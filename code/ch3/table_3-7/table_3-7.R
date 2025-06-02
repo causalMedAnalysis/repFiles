@@ -1,13 +1,10 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-7"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-# Open log
-sink(log_path, split = TRUE)
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -25,10 +22,9 @@ sink(log_path, split = TRUE)
 
 # Outputs:     .../code/ch3/_LOGS/table_3-7_log.txt
 
-# Description: Replicates Chapter 3, Table 3-7: Total, Direct, and Indirect 
+# Description: Replicates Chapter 3, Table 3-7: Total, Direct, and Indirect
 #              Effects of Job Training on Employment as Estimated from JOBSII.
 #-------------------------------------------------------------------------------
-
 
 #------------------------#
 #  INSTALL DEPENDENCIES  #
@@ -38,22 +34,15 @@ dependencies <- c("doParallel", "doRNG", "foreach")
 
 #install.packages(dependencies)
 # ^ Uncomment this line above to install these packages.
-
-# And note that, once you have installed these packages, there is no need for 
-# you to load these packages with the library function to run the code in this 
+# And note that, once you have installed these packages, there is no need for
+# you to load these packages with the library function to run the code in this
 # script.
-
-
-
 
 #-------------#
 #  LIBRARIES  #
 #-------------#
 library(tidyverse)
 library(haven)
-
-
-
 
 #-----------------------------#
 #  LOAD CAUSAL MED FUNCTIONS  #
@@ -70,9 +59,6 @@ source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/head
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
 # IPW CDE estimator
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R")
-
-
-
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -105,9 +91,6 @@ n_sims <- 1000
 # number of bootstrap replications
 n_reps <- 2000
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -117,9 +100,6 @@ jobs_raw <- read_stata(
 
 jobs <- jobs_raw |>
   zap_labels()
-
-
-
 
 #--------------------------#
 #  LINEAR MODEL ESTIMATOR  #
@@ -138,17 +118,14 @@ out_lin <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you
   # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
+  # (You do not need to load those packages beforehand, with the library
   # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
+  # argument to FALSE), the results may differ slightly, due to simulation
   # variance (even if you specify the same seed).
 )
-
-
-
 
 #-------------------------------------------------#
 #  SIMULATION & REGRESSION IMPUTATION ESTIMATORS  #
@@ -159,7 +136,6 @@ out_lin <- linmed(
 # Mediator model formula
 predictors_M <- paste(c(D,C), collapse = " + ")
 formula_M_string <- paste(M, "~", predictors_M)
-formula_M_string
 
 # Outcome model formula
 ## main effects
@@ -172,7 +148,6 @@ predictors_Y <- paste(
 )
 ## full formula
 formula_Y_string <- paste(Y, "~", predictors_Y)
-formula_Y_string
 
 # Define model specifications
 sim_specs <- list(
@@ -195,15 +170,15 @@ out_sim <- medsim(
   intv_med = NULL,
   model_spec = sim_specs,
   boot = TRUE,
-  reps = n_reps,
+  boot_reps = n_reps,
   seed = 3308004
-  # ^ Because of its resource intensity, running a non-parallelized bootstrap 
-  # of the simulation estimator is not advisable. Therefore, unlike the other 
-  # estimator functions, the parallelized bootstrap is the only implemented 
-  # bootstrap in the medsim() function. If you request a bootstrap (as in the 
-  # code above), you must have installed the following R packages: 
+  # ^ Because of its resource intensity, running a non-parallelized bootstrap
+  # of the simulation estimator is not advisable. Therefore, unlike the other
+  # estimator functions, the parallelized bootstrap is the only implemented
+  # bootstrap in the medsim() function. If you request a bootstrap (as in the
+  # code above), you must have installed the following R packages:
   # doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
+  # (You do not need to load those packages beforehand, with the library
   # function.)
 )
 
@@ -211,12 +186,13 @@ out_sim <- medsim(
 mod_Y <- glm(
   #as.formula(formula_Y_string),
   work1 ~ treat*job_seek + econ_hard + sex + age + nonwhite + educ + income,
-  # ^ scoping issues with the update function (used in the impcde bootstrap) 
-  # require us to directly specify the formula, rather than reference the 
+  # ^ scoping issues with the update function (used in the impcde bootstrap)
+  # require us to directly specify the formula, rather than reference the
   # formula_Y_string object
   family = binomial(link = "logit"),
   data = jobs
 )
+
 out_imp_cde <- impcde(
   data = jobs,
   model_y = mod_Y,
@@ -227,17 +203,14 @@ out_imp_cde <- impcde(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you
   # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
+  # (You do not need to load those packages beforehand, with the library
   # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
+  # argument to FALSE), the results may differ slightly, due to simulation
   # variance (even if you specify the same seed).
 )
-
-
-
 
 #-----------------#
 #  IPW ESTIMATOR  #
@@ -247,15 +220,13 @@ out_imp_cde <- impcde(
 # D model 1 formula: f(D|C)
 predictors1_D <- paste(C, collapse = " + ")
 formula1_D_string <- paste(D, "~", predictors1_D)
-formula1_D_string
 
 # D model 2 formula: s(D|C,M)
 predictors2_D <- paste(c(M,C), collapse = " + ")
 formula2_D_string <- paste(D, "~", predictors2_D)
-formula2_D_string
 
 # M model formula: g(M|C,D)
-formula_M_string # defined above
+#formula_M_string defined above
 
 # Estimate ATE(1,0), NDE(1,0), NIE(1,0)
 out_ipw <- ipwmed(
@@ -269,25 +240,21 @@ out_ipw <- ipwmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you
   # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
+  # (You do not need to load those packages beforehand, with the library
   # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
+  # argument to FALSE), the results may differ slightly, due to simulation
   # variance (even if you specify the same seed).
 )
-
-
-
 
 #---------------------#
 #  IPW CDE ESTIMATOR  #
 #---------------------#
-# The IPW CDE estimator function ipwcde() only supports binary exposures and 
-# mediators. But the job_seek mediator is not binary. We will create a custom 
+# The IPW CDE estimator function ipwcde() only supports binary exposures and
+# mediators. But the job_seek mediator is not binary. We will create a custom
 # IPW CDE function here, treating the mediator as pseudo-continuous.
-
 
 # Define inner custom IPW function
 # ----------------------------------------
@@ -305,13 +272,14 @@ custom_ipwcde_inner <- function(
     censor_high = 0.99,
     minimal = FALSE
 ) {
+  
   # preliminaries
   d <- 1
   dstar <- 0
-  
+
   # load data
   df <- data
-  
+
   # fit specified models
   d_model <- glm(
     as.formula(formula_D_string),
@@ -322,13 +290,13 @@ custom_ipwcde_inner <- function(
     as.formula(formula_M_string),
     data = df
   )
-  
+
   # additionally fit mediator model without covariates
   m_model_no_cov <- lm(
     as.formula(paste0(M,"~",D)),
     data = df
   )
-  
+
   # predict exposure and mediator probabilities
   ps_D1_C <- predict(d_model, newdata = df, type = "response")
   ps_D_C <- ifelse(as.logical(df[[D]]), ps_D1_C, 1-ps_D1_C)
@@ -352,30 +320,30 @@ custom_ipwcde_inner <- function(
     mean = Ehat_M_D,
     sd = sighat_M_D
   )
-  
+
   # create IPWs
   w4 <- 1 / (ps_M_CD * ps_D_C)
-  
+
   # stabilize IPWs
   if (stabilize) {
     w4 <- w4 * marg_dens_M_D * marg_prob_D
   }
-  
+
   # censor IPWs
   if (censor) {
     w4 <- trimQ(w4, low = censor_low, high = censor_high)
   }
-  
+
   # estimate effects
   y_model <- lm(
     as.formula(paste0(Y,"~",D,"*",M)),
     data = df,
     weights = w4
   )
-  CDE <- 
-    y_model$coefficients[[D]] + 
+  CDE <-
+    y_model$coefficients[[D]] +
     y_model$coefficients[[paste0(D,":",M)]] * m
-  
+
   # compile and output
   if (minimal) {
     out <- CDE
@@ -390,7 +358,6 @@ custom_ipwcde_inner <- function(
   }
   return(out)
 }
-
 
 # Define outer custom IPW function (bootstrapping the inner function)
 # ----------------------------------------
@@ -416,12 +383,10 @@ custom_ipwcde <- function(
 ) {
   # load data
   data_outer <- data
-  
-  
+
   # create adjusted boot_parallel logical
   boot_parallel_rev <- ifelse(boot_cores>1, boot_parallel, FALSE)
-  
-  
+
   # preliminary error/warning checks for the bootstrap
   if (boot) {
     if (boot_parallel & boot_cores==1) {
@@ -437,8 +402,7 @@ custom_ipwcde <- function(
       stop(paste(strwrap("Error: You requested a parallelized bootstrap (boot=TRUE and boot_parallel=TRUE), but the required package 'foreach' has not been installed. Please install this package if you wish to run a parallelized bootstrap."), collapse = "\n"))
     }
   }
-  
-  
+
   # other error/warning checks
   if (length(M)>1) {
     stop(paste(strwrap("Error: Unlike the ipwmed() function, ipwcde() requires a single mediator. Multiple mediators are not supported."), collapse = "\n"))
@@ -470,11 +434,10 @@ custom_ipwcde <- function(
   if (!grepl(pattern = D, x = formula_M_string, fixed = TRUE)) {
     warning(paste(strwrap("Warning: Check whether the exposure variable is among the predictors in the formula_M_string. The exposure should be among the predictors in the formula_M_string."), collapse = "\n"))
   }
-  # ^ Note that the grepl-based warning checks are fairly simple, based solely 
-  # on whether the string is detected. For now, we are not using more complex 
+  # ^ Note that the grepl-based warning checks are fairly simple, based solely
+  # on whether the string is detected. For now, we are not using more complex
   # checks searching for full words in the model formula.
-  
-  
+
   # compute point estimates
   est <- custom_ipwcde_inner(
     data = data_outer,
@@ -490,15 +453,14 @@ custom_ipwcde <- function(
     censor_high = censor_high,
     minimal = FALSE
   )
-  
-  
+
   # bootstrap, if requested
   if (boot) {
     # bootstrap function
     boot_fnc <- function() {
       # sample from the data with replacement
       boot_data <- data_outer[sample(nrow(data_outer), size = nrow(data_outer), replace = TRUE), ]
-      
+
       # compute point estimates in the replicate sample
       custom_ipwcde_inner(
         data = boot_data,
@@ -515,19 +477,19 @@ custom_ipwcde <- function(
         minimal = TRUE
       )
     }
-    
+
     # parallelization prep, if parallelization requested
     if (boot_parallel_rev) {
       x_cluster <- parallel::makeCluster(boot_cores, type="PSOCK")
       doParallel::registerDoParallel(cl=x_cluster)
       parallel::clusterExport(
-        cl = x_cluster, 
+        cl = x_cluster,
         varlist = c("custom_ipwcde_inner", "trimQ"),
         envir = environment()
       )
       `%dopar%` <- foreach::`%dopar%`
     }
-    
+
     # set seed
     if (!is.null(boot_seed)) {
       set.seed(boot_seed)
@@ -535,7 +497,7 @@ custom_ipwcde <- function(
         doRNG::registerDoRNG(boot_seed)
       }
     }
-    
+
     # compute estimates for each replicate sample
     if (boot_parallel_rev) {
       boot_CDE <- foreach::foreach(i = 1:boot_reps, .combine = c) %dopar% {
@@ -548,14 +510,14 @@ custom_ipwcde <- function(
         boot_CDE[i] <- boot_fnc()
       }
     }
-    
+
     # clean up
     if (boot_parallel_rev) {
       parallel::stopCluster(x_cluster)
       rm(x_cluster)
     }
-    
-    # compute bootstrap confidence intervals 
+
+    # compute bootstrap confidence intervals
     # from percentiles of the bootstrap distributions
     boot_alpha <- 1 - boot_conf_level
     boot_ci_probs <- c(
@@ -566,7 +528,7 @@ custom_ipwcde <- function(
       quantile(x, probs=boot_ci_probs)
     }
     ci_CDE <- boot_ci(boot_CDE)
-    
+
     # compute two-tailed bootstrap p-values
     boot_pval <- function(x) {
       2 * min(
@@ -575,7 +537,7 @@ custom_ipwcde <- function(
       )
     }
     pvalue_CDE <- boot_pval(boot_CDE)
-    
+
     # compile bootstrap results
     boot_out <- list(
       ci_CDE = ci_CDE,
@@ -583,8 +545,7 @@ custom_ipwcde <- function(
       boot_CDE = boot_CDE
     )
   }
-  
-  
+
   # final output
   out <- est
   if (boot) {
@@ -592,7 +553,6 @@ custom_ipwcde <- function(
   }
   return(out)
 }
-
 
 # Run custom IPW function
 # ----------------------------------------
@@ -608,24 +568,21 @@ out_ipw_cde <- custom_ipwcde(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
+  # ^ Note that parallelizing the bootstrap is optional, but requires that you
   # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
+  # (You do not need to load those packages beforehand, with the library
   # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
+  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
+  # argument to FALSE), the results may differ slightly, due to simulation
   # variance (even if you specify the same seed).
 )
-
-
-
 
 #-------------------#
 #  COLLATE RESULTS  #
 #-------------------#
 master <- data.frame(
   param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)", "CDE(1,0,4)"),
-  
+
   # linear models
   lin_est = c(
     out_lin$ATE,
@@ -645,27 +602,27 @@ master <- data.frame(
     out_lin$ci_NIE[2],
     out_lin$ci_CDE[2]
   ),
-  
+
   # simulation and regression imputation
   sim_est = c(
-    out_sim$point.est[1],
-    out_sim$point.est[2],
-    out_sim$point.est[3],
+    out_sim$results[1,1],
+    out_sim$results[2,1],
+    out_sim$results[3,1],
     out_imp_cde$CDE
   ),
   sim_ci_low = c(
-    out_sim$ll.95ci[1],
-    out_sim$ll.95ci[2],
-    out_sim$ll.95ci[3],
+    out_sim$results[1,3],
+    out_sim$results[2,3],
+    out_sim$results[3,3],
     out_imp_cde$ci_CDE[1]
   ),
   sim_ci_high = c(
-    out_sim$ul.95ci[1],
-    out_sim$ul.95ci[2],
-    out_sim$ul.95ci[3],
+    out_sim$results[1,4],
+    out_sim$results[2,4],
+    out_sim$results[3,4],
     out_imp_cde$ci_CDE[2]
   ),
-  
+
   # IPW
   ipw_est = c(
     out_ipw$ATE,
@@ -687,6 +644,9 @@ master <- data.frame(
   )
 )
 
+# Open log
+sink(log_path, split = TRUE)
+
 width_curr <- getOption("width")
 options(width = 500)
 master |>
@@ -697,7 +657,6 @@ master |>
     )
   )
 options(width = width_curr)
-
 
 # Close log
 sink()
