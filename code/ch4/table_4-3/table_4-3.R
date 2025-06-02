@@ -1,13 +1,10 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "table_4-3"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-# Open log
-sink(log_path, split = TRUE)
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -25,7 +22,6 @@ sink(log_path, split = TRUE)
 #              Using the Simulation Approach.
 #-------------------------------------------------------------------------------
 
-
 #------------------------#
 #  INSTALL DEPENDENCIES  #
 #------------------------#
@@ -39,26 +35,17 @@ dependencies <- c("doParallel", "doRNG", "foreach")
 # you to load these packages with the library function to run the code in this 
 # script.
 
-
-
-
 #-------------#
 #  LIBRARIES  #
 #-------------#
 library(tidyverse)
 library(haven)
 
-
-
-
 #-----------------------------#
 #  LOAD CAUSAL MED FUNCTIONS  #
 #-----------------------------#
 # simulation estimator
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
-
-
-
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -102,9 +89,6 @@ m <- log(5e4)
 # number of simulations
 n_sims <- 2000
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -116,9 +100,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
   mutate(
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #-------------#
 #  VERSION 1  #
@@ -183,9 +164,6 @@ out1_cde <- medsim(
   model_spec = out1_specs,
   seed = 3308004
 )
-
-
-
 
 #-------------#
 #  VERSION 2  #
@@ -277,27 +255,27 @@ out2_cde <- medsim(
   seed = 3308004
 )
 
-
-
-
 #---------------------#
 #  COLLATE ESTIMATES  #
 #---------------------#
 master <- data.frame(
   param = c("OE(1,0)", "IDE(1,0)", "IIE(1,0)", "CDE(1,0,ln(50K))"),
   est_v1 = c(
-    out1$OE,
-    out1$IDE,
-    out1$IIE,
-    out1_cde$CDE
+    out1[[3]],
+    out1[[1]],
+    out1[[2]],
+    out1_cde[[1]]
   ),
   est_v2 = c(
-    out2$OE,
-    out2$IDE,
-    out2$IIE,
-    out2_cde$CDE
+    out2[[3]],
+    out2[[1]],
+    out2[[2]],
+    out2_cde[[1]]
   )
 )
+
+# Open log
+sink(log_path, split = TRUE)
 
 master |>
   mutate(
@@ -306,7 +284,6 @@ master |>
       .fns = \(x) round(x, 3)
     )
   )
-
 
 # Close log
 sink()
