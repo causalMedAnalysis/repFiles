@@ -1,13 +1,10 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-3"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-# Open log
-sink(log_path, split = TRUE)
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -26,15 +23,11 @@ sink(log_path, split = TRUE)
 #              the NLSY using the Simulation and Imputation Approach.
 #-------------------------------------------------------------------------------
 
-
 #-------------#
 #  LIBRARIES  #
 #-------------#
 library(tidyverse)
 library(haven)
-
-
-
 
 #-----------------------------#
 #  LOAD CAUSAL MED FUNCTIONS  #
@@ -43,9 +36,6 @@ library(haven)
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
 # regression imputation CDE estimator
 source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
-
-
-
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -85,9 +75,6 @@ m <- 0
 # number of simulations
 n_sims <- 2000
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -99,9 +86,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
   mutate(
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #-------------#
 #  VERSION 1  #
@@ -121,15 +105,8 @@ formula1_Y_string
 
 # Define model specifications
 out1_specs <- list(
-  list(
-    func = "glm",
-    formula = as.formula(formula1_M_string),
-    args = list(family = "binomial")
-  ),
-  list(
-    func = "lm",
-    formula = as.formula(formula1_Y_string)
-  )
+  list(func = "glm", formula = as.formula(formula1_M_string), args = list(family = "binomial")),
+  list(func = "lm", formula = as.formula(formula1_Y_string))
 )
 
 # Estimate ATE(1,0), NDE(1,0), and NIE(1,0) by simulation estimator
@@ -147,6 +124,7 @@ mod1_Y <- lm(
   as.formula(formula1_Y_string),
   data = nlsy
 )
+
 out1_cde <- impcde(
   data = nlsy,
   model_y = mod1_Y,
@@ -154,9 +132,6 @@ out1_cde <- impcde(
   M = M,
   m = m
 )
-
-
-
 
 #-------------#
 #  VERSION 2  #
@@ -204,15 +179,8 @@ formula2_Y_string
 
 # Define model specifications
 out2_specs <- list(
-  list(
-    func = "glm",
-    formula = as.formula(formula2_M_string),
-    args = list(family = "binomial")
-  ),
-  list(
-    func = "lm",
-    formula = as.formula(formula2_Y_string)
-  )
+  list(func = "glm", formula = as.formula(formula2_M_string), args = list(family = "binomial")),
+  list(func = "lm", formula = as.formula(formula2_Y_string))
 )
 
 # Estimate ATE(1,0), NDE(1,0), and NIE(1,0)
@@ -230,6 +198,7 @@ mod2_Y <- lm(
   as.formula(formula2_Y_string),
   data = nlsy
 )
+
 out2_cde <- impcde(
   data = nlsy,
   model_y = mod2_Y,
@@ -237,9 +206,6 @@ out2_cde <- impcde(
   M = M,
   m = m
 )
-
-
-
 
 #---------------------#
 #  COLLATE ESTIMATES  #
@@ -260,6 +226,9 @@ master <- data.frame(
   )
 )
 
+# Open log
+sink(log_path, split = TRUE)
+
 master |>
   mutate(
     across(
@@ -267,7 +236,6 @@ master |>
       .fns = \(x) round(x, 3)
     )
   )
-
 
 # Close log
 sink()
