@@ -173,6 +173,7 @@ mrmed1_rst <-
     D = D,
     Y = Y,
     M = M[[1]],
+    C = C,
     D_C_model = D_C_model,
     Y_DMC_model = Y_DMC_model,
     M_DC_model = M_DC_model,
@@ -193,6 +194,7 @@ dmlmed1_rst <-
     D = D,
     Y = Y,
     M = M[[1]],
+    C = C,
     D_C_model = D_C_model,
     Y_DMC_model = Y_DMC_model,
     M_DC_model = M_DC_model,
@@ -232,6 +234,7 @@ mrmed2_rst <-
     D = D,
     Y = Y,
     M = M[[1]],
+    C = C,
     D_C_model = D_C_model,
     D_MC_model = D_MC_model,
     Y_DC_model = Y_DC_model,
@@ -253,6 +256,7 @@ dmlmed2_rst <-
     D = D,
     Y = Y,
     M = M[[1]],
+    C = C,
     D_C_model = D_C_model,
     D_MC_model = D_MC_model,
     Y_DC_model = Y_DC_model,
@@ -261,7 +265,7 @@ dmlmed2_rst <-
     d = 1,
     dstar = 0,
     seed = seed,
-    SL.library = c("SL.mean", "SL.glmnet","SL.ranger")
+    SL.library = c("SL.mean", "SL.glmnet", "SL.ranger")
   )
 
 #------------------------------------------------------------------------------#
@@ -278,7 +282,7 @@ make_CI <- function(est, se) {
 
 final_rst <- 
   tibble::tibble(
-  estimand = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)"),
+  Estimand = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)"),
   mrmed1 = c(
     make_CI(mrmed1_rst$est1$`ATE(1,0)`, mrmed1_rst$boot_rst_lst$est1$sd_ATE),
     make_CI(mrmed1_rst$est1$`NDE(1,0)`, mrmed1_rst$boot_rst_lst$est1$sd_NDE),
@@ -291,29 +295,29 @@ final_rst <-
   )
  ) %>%
  left_join(
-   dmlmed1_rst$est1 %>%
+   dmlmed1_rst %>%
      dplyr::select(
-       estimand,
+       Estimand,
        out
      ) %>%
     rename(
       `DML mrmed1` = out
     ),
-   by = "estimand"
+   by = "Estimand"
  ) %>%
   left_join(
-    dmlmed2_rst$est2 %>%
+    dmlmed2_rst %>%
       dplyr::select(
-        estimand,
+        Estimand,
         out
       ) %>%
       rename(
         `DML mrmed2` = out
       ),
-    by = "estimand"
+    by = "Estimand"
   ) %>%
   dplyr::select(
-    estimand,
+    Estimand,
     mrmed1,
     `DML mrmed1`,
     mrmed2,
