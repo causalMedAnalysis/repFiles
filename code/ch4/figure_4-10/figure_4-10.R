@@ -1,13 +1,29 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "figure_4-10"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
 
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 # Open log
 sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -16,8 +32,6 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch4/figure_4-10.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/plowUse/plowUse.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R
 
 # Outputs:     .../code/ch4/_LOGS/figure_4-10_log.txt
 
@@ -26,57 +40,32 @@ sink(log_path, split = TRUE)
 #              Due to Unobserved Exposure-Outcome Confounding.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "gridExtra",
+    "metR",
+    "devtools"
+  )
 
-#------------------------#
-#  INSTALL DEPENDENCIES  #
-#------------------------#
-# First, install dependencies available on CRAN.
-# The following packages are used to create Figure 4.10.
-dependencies_cran <- c("gridExtra", "metR")
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
-#install.packages(dependencies_cran)
-# ^ Uncomment this line above to install these packages.
+install_and_load(packages)
 
-
-# Second, install the rwrmed R package, which is available to install from 
-# GitHub.
-# To install the package directly, you must first have installed the devtools 
-# package (which is available on CRAN).
-
-#install.packages("devtools")
-# ^ Uncomment this line above to install the devtools package, if you have not 
-# already done so.
-
-#devtools::install_github("xiangzhou09/rwrmed")
-# ^ Uncomment this line above to install the rwrmed package from GitHub.
-
-
-
-
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(gridExtra)
-library(metR)
-library(tidyverse)
-library(haven)
-
-
-
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# RWR estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
-# ^ Note that rwrlite() is a wrapper for two functions from the rwrmed package. 
-# It requires that you have installed rwrmed. (But you do not need to load the 
-# rwrmed package beforehand, with the library function.)
-
-
-
+install_github("causalMedAnalysis/cmedR")
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -93,7 +82,7 @@ M <- "ln_income"
 # exposure-induced confounder
 L <- "authGovCat"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "agricultural_suitability",
   "tropical_climate",
@@ -114,9 +103,6 @@ key_vars <- c(
 # mediator value for CDE
 m <- 7.5 # roughly equal to log(1800)
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -134,9 +120,6 @@ plow <- na.omit(plow_raw[,key_vars]) |>
       polity2_2000>=-10 ~ 1
     )
   )
-
-
-
 
 #------------------#
 #  MODEL FORMULAE  #
@@ -165,9 +148,6 @@ predictors_Y <- paste(
 (formula_Y_string <- paste(Y, "~", predictors_Y))
 formula_Y <- as.formula(formula_Y_string)
 
-
-
-
 #--------------------#
 #  ESTIMATE EFFECTS  #
 #--------------------#
@@ -180,9 +160,6 @@ out <- rwrlite(
   M_formula = formula_M,
   L_formula_list = list(formula_L)
 )
-
-
-
 
 #---------------------------#
 #  BIAS-ADJUSTED ESTIMATES  #
@@ -199,9 +176,6 @@ adj_grid <- cbind(
   ide_adj = out$IDE - (sens_grid$delta_UYgivCDLM * sens_grid$delta_DUgivC),
   oe_adj = out$OE - (sens_grid$delta_UYgivCDLM * sens_grid$delta_DUgivC)
 )
-
-
-
 
 #------------------------#
 #  CREATE CONTOUR PLOTS  #
@@ -286,7 +260,5 @@ ggsave(
   dpi = 600
 )
 
-
 # Close log
 sink()
-
