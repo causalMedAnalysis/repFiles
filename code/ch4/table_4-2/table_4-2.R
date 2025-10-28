@@ -1,13 +1,26 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "table_4-2"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-# Open log
-sink(log_path, split = TRUE)
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -16,7 +29,6 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch4/table_4-2.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R
 
 # Outputs:     .../code/ch4/_LOGS/table_4-2_log.txt
 
@@ -25,47 +37,31 @@ sink(log_path, split = TRUE)
 #              Using Regression-with-Residuals.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "devtools"
+  )
 
-#------------------------#
-#  INSTALL DEPENDENCIES  #
-#------------------------#
-# This script uses the rwrmed R package, which is available to install from 
-# GitHub.
-# To install the package directly, you must first have installed the devtools 
-# package (which is available on CRAN).
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
-#install.packages("devtools")
-# ^ Uncomment this line above to install the devtools package, if you have not 
-# already done so.
+install_and_load(packages)
 
-#devtools::install_github("xiangzhou09/rwrmed")
-# ^ Uncomment this line above to install the rwrmed package from GitHub.
+install_github("causalMedAnalysis/cmedR")
 
-
-
-
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
-
-
-
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# regression-with-residuals estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
-# ^ Note that rwrlite() is a wrapper for two functions from the rwrmed package. 
-# It requires that you have installed rwrmed. (But you do not need to load the 
-# rwrmed package beforehand, with the library function.)
-
-
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -83,7 +79,7 @@ ln_M <- "log_faminc_adj_age3539"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "female",
   "black",
@@ -108,9 +104,6 @@ key_vars <- c(
 m <- 5e4
 ln_m <- log(m)
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -122,9 +115,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
   mutate(
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #-------------#
 #  VERSION 1  #
@@ -162,15 +152,12 @@ out1 <- rwrlite(
   L_formula_list = list(formula1_L)
 )
 
-
-
-
 #-------------#
 #  VERSION 2  #
 #-------------#
 # RWR with ln(M) and D x ln(M) interaction
 
-# L and M model formulae
+# L and M model formula
 (formula2_M_string <- paste(ln_M, "~", predictors1_LM))
 formula2_L <- formula1_L
 formula2_M <- as.formula(formula2_M_string)
@@ -199,9 +186,6 @@ out2 <- rwrlite(
   L_formula_list = list(formula2_L)
 )
 
-
-
-
 #-------------#
 #  VERSION 3  #
 #-------------#
@@ -210,7 +194,7 @@ out2 <- rwrlite(
 # ln(M) model: With D x C interactions
 # Y model:     With D x ln(M), D x C, ln(M) x C, ln(M) x L interactions
 
-# L and M model formulae
+# L and M model formula
 ## main effects
 predictors3_LM <- paste(c(D,C), collapse = " + ")
 ## D x C interactions
@@ -267,9 +251,6 @@ out3 <- rwrlite(
   L_formula_list = list(formula3_L)
 )
 
-
-
-
 #---------------------#
 #  COLLATE ESTIMATES  #
 #---------------------#
@@ -295,6 +276,9 @@ master <- data.frame(
   )
 )
 
+# Open log
+sink(log_path, split = TRUE)
+
 master |>
   mutate(
     across(
@@ -303,7 +287,5 @@ master |>
     )
   )
 
-
 # Close log
 sink()
-
