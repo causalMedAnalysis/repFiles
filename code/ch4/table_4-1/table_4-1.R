@@ -1,13 +1,30 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "table_4-1"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
+dir.create(dir_log, recursive = TRUE, showWarnings = FALSE)
+
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
 
 # Open log
 sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -26,15 +43,26 @@ sink(log_path, split = TRUE)
 #              OE, which are reported in the text following Table 4-1.
 #-------------------------------------------------------------------------------
 
+#-----------------------------#
+#  INSTALL AND LOAD PACKAGES  #
+#-----------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven"
+  )
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
-
-
+install_and_load(packages)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -51,23 +79,20 @@ M <- "incgt50k"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounder(s)
+# baseline confounder
 C <- "momcol"
 
 # key variables
 key_vars <- c(
   "cesd_age40", # unstandardized version of Y
   D,
-  "faminc_adj_age3539", # source variable for C
+  "faminc_adj_age3539", # source variable for M
   L,
   "momedu" # source variable for C
 )
 
 # mediator value for CDE
 m <- 1
-
-
-
 
 #----------------#
 #  PREPARE DATA  #
@@ -82,9 +107,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
     incgt50k = as.numeric(faminc_adj_age3539>=50000),
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #-------------------------------#
 #  CASE COUNTS & OUTCOME MEANS  #
@@ -105,9 +127,6 @@ agg |>
     names_vary = "slowest",
     values_from = c(mean, n)
   )
-
-
-
 
 #---------------------------#
 #  NONPARAMETRIC ESTIMATES  #
@@ -133,7 +152,6 @@ agg2 <- agg |>
     sign = ifelse(as.logical(.data[[D]]), 1, -1)
   )
 
-
 # Estimate CDE(1,0,50K+)
 CDEhat_npl <- agg2 |>
   filter(.data[[M]]==m) |>
@@ -144,7 +162,6 @@ CDEhat_npl <- agg2 |>
     est = sum(product)
   ) |>
   pull(est)
-
 
 # Estimate IDE(1,0)
 IDEhat_npl <- agg2 |>
@@ -160,7 +177,6 @@ IDEhat_npl <- agg2 |>
     est = sum(sign * mean * prop_L_CD * prop_M_Cdstar * prop_C)
   ) |>
   pull(est)
-
 
 # Estimate IIE(1,0)
 IIEhat_npl <- agg2 |>
@@ -180,10 +196,8 @@ IIEhat_npl <- agg2 |>
   ) |>
   pull(est)
 
-
 # Estimate OE(1,0)
 OEhat_npl <- IDEhat_npl + IIEhat_npl
-
 
 # Collate estimates
 npest <- data.frame(
@@ -196,7 +210,5 @@ npest |>
     est = round(est, 2)
   )
 
-
 # Close log
 sink()
-
