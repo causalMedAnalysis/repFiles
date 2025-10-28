@@ -10,9 +10,6 @@ dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
-# Ensure all necessary directories exist under your root folder
-# if not, the following function will create folders for you
-
 create_dir_if_missing <- function(dir) {
   if (!dir.exists(dir)) {
     dir.create(dir, recursive = TRUE)
@@ -33,8 +30,6 @@ create_dir_if_missing(dir_log)
 # Script:      .../code/ch6/table_6-1.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.RDS
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              
 
 # Outputs:     .../code/ch6/_LOGS/table_6-1_log.txt
 
@@ -42,11 +37,9 @@ create_dir_if_missing(dir_log)
 #              of College Attendance on Depression (CES-D scores) from the NLSY.
 #-------------------------------------------------------------------------------
 
-#---------------------------------------------------#
-#  INSTALL DEPENDENCIES AND LOAD RERUIRED PACKAGES  #
-#---------------------------------------------------#
-
-# The following packages are required to replicate results:
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
 packages <-
   c(
     "survey", 
@@ -60,11 +53,10 @@ packages <-
     "Hmisc",
     "SuperLearner",
     "scales",
-    "haven"
+    "haven",
+    "devtools"
   )
 
-# Function below will automatically download the packages you need
-# Otherwise simply load the required packages
 install_and_load <- function(pkg_list) {
   for (pkg in pkg_list) {
     if (!requireNamespace(pkg, quietly = TRUE)) {  
@@ -77,11 +69,9 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
+install_github("causalMedAnalysis/cmedR")
 
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -137,7 +127,6 @@ df <-
   nlsy_raw[complete.cases(nlsy_raw[, key_vars]),] |>
   mutate(std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40))
 
-
 #------------------------------------------------------------------------------#
 #                            REPLICATE TABLE 6.1                               #
 #------------------------------------------------------------------------------#
@@ -151,6 +140,16 @@ D_model_f <- as.formula(paste(D, " ~ ", paste(C, collapse= "+")))
 Y_model_f <- as.formula(paste(Y, " ~ ", paste(c(C, D), collapse= "+")))
 
 # Define function for implementing parametric MR estimator for ATE
+
+trimQ <- function(x, low = 0.01, high = 0.99) {
+  min <- quantile(x, low)
+  max <- quantile(x, high)
+  
+  x[x<min] <- min
+  x[x>max] <- max
+  x
+}
+
 paraMR <- function(
     D,
     Y,
@@ -477,9 +476,3 @@ print(master)
 
 # Close log
 sink()
-
-
-
-
-
-
