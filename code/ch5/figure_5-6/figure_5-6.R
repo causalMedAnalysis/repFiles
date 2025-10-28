@@ -27,6 +27,8 @@ create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
 create_dir_if_missing(dir_fig)
 
+sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -34,8 +36,7 @@ create_dir_if_missing(dir_fig)
 
 # Script:      .../code/ch5/table_5-9.R
 
-# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R
+# Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Brader_et_al2008/Brader_et_al2008.RData
 
 # Outputs:     .../code/ch5/_LOGS/figure_5-6_log.txt
 #              .../figures/ch5/figure_5-6.png
@@ -44,21 +45,16 @@ create_dir_if_missing(dir_fig)
 #              Direct Effect of Issue Framing on Support for Immigration
 #-------------------------------------------------------------------------------
 
-
-#----------------------------------------------------#
-#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES   #
-#----------------------------------------------------#
-
-# The following packages are required to replicate results
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
     "paths",
-    "latex2exp"
+    "latex2exp",
+    "devtools"
   )
-
-# Function below will automatically download the packages you need
-# Otherwise simply load the packages
 
 install_and_load <- function(pkg_list) {
   for (pkg in pkg_list) {
@@ -72,14 +68,9 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
+install_github("causalMedAnalysis/cmedR")
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -126,7 +117,6 @@ nboot <- 2000
 # set seed:
 boot_seed <- 02138
 
-
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
@@ -168,7 +158,6 @@ Brader <-
     female_sens = as.double(ppgender == "female"),
     ba_sens = as.double(ppeducat == "bachelor's degree or higher")
   )
-
 
 #------------------------------------------------------------------------------#
 #                            REPLICATE FIGURE 5.6                              #
@@ -276,3 +265,4 @@ plot(
 
 ggsave(paste0(dir_fig,"/figure_5-6.png"), width = 10, height = 7)
 
+sink()
