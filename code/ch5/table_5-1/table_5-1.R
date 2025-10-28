@@ -1,13 +1,30 @@
 # Preliminaries
 chapter <- "ch5"
 title <- "table_5-1"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
 
+# Ensure all necessary directories exist under your root folder
+# If not, the function below will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+create_dir_if_missing(dir_fig)
+
 # Open log
 sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -16,8 +33,6 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch5/table_5-1.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
 
 # Outputs:     .../code/ch5/_LOGS/table_5-1_log.txt
 
@@ -26,42 +41,34 @@ sink(log_path, split = TRUE)
 #              the One-Mediator-at-a-Time Approach Applied to the NLSY.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse", 
+    "haven",
+    "doParallel", 
+    "doRNG", 
+    "foreach",
+    "devtools"
+  )
 
-#------------------------#
-#  INSTALL DEPENDENCIES  #
-#------------------------#
-# The following packages are used to parallelize the bootstrap.
-dependencies <- c("doParallel", "doRNG", "foreach")
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {  
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)  
+    }
+    library(pkg, character.only = TRUE)  
+  }
+}
 
-#install.packages(dependencies)
-# ^ Uncomment this line above to install these packages.
+install_and_load(packages)
 
-# And note that, once you have installed these packages, there is no need for 
-# you to load these packages with the library function to run the code in this 
-# script.
+install_github("causalMedAnalysis/cmedR")
 
-
-
-
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
-
-
-
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# product-of-coefficients estimator, based on linear models
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
-
-
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -78,7 +85,7 @@ M <- c(
   "log_faminc_adj_age3539"
 )
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "female",
   "black",
@@ -101,9 +108,6 @@ key_vars <- c(
 # number of bootstrap replications
 n_reps <- 2000
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -111,7 +115,7 @@ nlsy_raw <- read_stata(
   file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
 )
 
-# create two samples for the analysis data, taking complete cases for the 
+# create two samples for the analysis data, taking complete cases of the 
 # relevant variables for each analysis
 nlsy_m1 <- nlsy_raw[complete.cases(nlsy_raw[,c(key_vars,M[1])]),] |>
   mutate(
@@ -122,9 +126,6 @@ nlsy_m2 <- nlsy_raw[complete.cases(nlsy_raw[,c(key_vars,M[2])]),] |>
   mutate(
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #-------------------------#
 #  MEDIATOR 1, VERSION 1  #
@@ -141,17 +142,7 @@ out_m1v1 <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you 
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library 
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel 
-  # argument to FALSE), the results may differ slightly, due to simulation 
-  # variance (even if you specify the same seed).
 )
-
-
-
 
 #-------------------------#
 #  MEDIATOR 1, VERSION 2  #
@@ -169,11 +160,7 @@ out_m1v2 <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ See note above about parallelizing the bootstrap.
 )
-
-
-
 
 #-------------------------#
 #  MEDIATOR 2, VERSION 1  #
@@ -190,11 +177,7 @@ out_m2v1 <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ See note above about parallelizing the bootstrap.
 )
-
-
-
 
 #-------------------------#
 #  MEDIATOR 2, VERSION 2  #
@@ -212,11 +195,7 @@ out_m2v2 <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ See note above about parallelizing the bootstrap.
 )
-
-
-
 
 #-------------------#
 #  COLLATE RESULTS  #
@@ -298,7 +277,5 @@ master |>
     )
   )
 
-
 # Close log
 sink()
-
