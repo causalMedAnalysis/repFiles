@@ -5,6 +5,21 @@ dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -13,8 +28,6 @@ log_path <- paste0(dir_log, "/", title, "_log.txt")
 # Script:      .../code/ch3/table_3-3.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R
 
 # Outputs:     .../code/ch3/_LOGS/table_3-3_log.txt
 
@@ -23,19 +36,31 @@ log_path <- paste0(dir_log, "/", title, "_log.txt")
 #              the NLSY using the Simulation and Imputation Approach.
 #-------------------------------------------------------------------------------
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "devtools"
+  )
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# simulation estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
-# regression imputation CDE estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
+
+install_and_load(packages)
+
+install_github("causalMedAnalysis/cmedR")
+
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -49,7 +74,7 @@ D <- "att22"
 # mediator
 M <- "ever_unemp_age3539"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "female",
   "black",
@@ -142,12 +167,14 @@ out1_cde <- impcde(
 # Mediator model formula
 ## main effects
 predictors2_M <- paste(c(D,C), collapse = " + ")
+
 ## D x C interactions
 predictors2_M <- paste(
   predictors2_M,
   "+",
   paste(D, C, sep = ":", collapse = " + ")
 )
+
 ## full formula
 formula2_M_string <- paste(M, "~", predictors2_M)
 formula2_M_string
@@ -155,24 +182,28 @@ formula2_M_string
 # Outcome model formula
 ## main effects
 predictors2_Y <- paste(c(D,M,C), collapse = " + ")
+
 ## D x M interaction
 predictors2_Y <- paste(
   predictors2_Y,
   "+",
   paste(D, M, sep = ":", collapse = " + ")
 )
+
 ## D x C interactions
 predictors2_Y <- paste(
   predictors2_Y,
   "+",
   paste(D, C, sep = ":", collapse = " + ")
 )
+
 ## M x C interactions
 predictors2_Y <- paste(
   predictors2_Y,
   "+",
   paste(M, C, sep = ":", collapse = " + ")
 )
+
 ## full formula
 formula2_Y_string <- paste(Y, "~", predictors2_Y)
 formula2_Y_string
@@ -239,4 +270,3 @@ master |>
 
 # Close log
 sink()
-
