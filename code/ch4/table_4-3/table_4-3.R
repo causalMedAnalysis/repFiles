@@ -5,6 +5,21 @@ dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -13,7 +28,6 @@ log_path <- paste0(dir_log, "/", title, "_log.txt")
 # Script:      .../code/ch4/table_4-3.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
 
 # Outputs:     .../code/ch4/_LOGS/table_4-3_log.txt
 
@@ -22,30 +36,34 @@ log_path <- paste0(dir_log, "/", title, "_log.txt")
 #              Using the Simulation Approach.
 #-------------------------------------------------------------------------------
 
-#------------------------#
-#  INSTALL DEPENDENCIES  #
-#------------------------#
-# The following packages are used to parallelize the bootstrap.
-dependencies <- c("doParallel", "doRNG", "foreach")
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "doParallel",
+    "doRNG", 
+    "foreach",
+    "devtools"
+  )
 
-#install.packages(dependencies)
-# ^ Uncomment this line above to install these packages.
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
-# And note that, once you have installed these packages, there is no need for 
-# you to load these packages with the library function to run the code in this 
-# script.
+install_and_load(packages)
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
+install_github("causalMedAnalysis/cmedR")
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# simulation estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -62,7 +80,7 @@ M <- "log_faminc_adj_age3539"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "female",
   "black",
@@ -287,4 +305,3 @@ master |>
 
 # Close log
 sink()
-
