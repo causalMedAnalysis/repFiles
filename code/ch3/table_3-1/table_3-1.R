@@ -1,13 +1,30 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-1"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
+dir.create(dir_log, recursive = TRUE, showWarnings = FALSE)
+
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
 
 # Open log
 sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -16,7 +33,6 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch3/table_3-1.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R
 
 # Outputs:     .../code/ch3/_LOGS/table_3-1_log.txt
 
@@ -27,25 +43,32 @@ sink(log_path, split = TRUE)
 #              NIE, which are reported in the text following Table 3-1.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "margins",
+    "tidyverse",
+    "haven",
+    "devtools"
+  )
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(margins)
-library(tidyverse)
-library(haven)
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
+install_and_load(packages)
 
+install_github("causalMedAnalysis/cmedR")
 
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# regression imputation CDE estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
-
-
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -73,9 +96,6 @@ key_vars <- c(
 # mediator value for CDE
 m <- 0
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -88,9 +108,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
     momcol = as.numeric(momedu>12),
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #-------------------------------#
 #  CASE COUNTS & OUTCOME MEANS  #
@@ -121,14 +138,10 @@ nlsy |>
     values_from = c(mean, n)
   )
 
-
-
-
 #---------------------------#
 #  NONPARAMETRIC ESTIMATES  #
 #---------------------------#
 # The following estimates are reported in the text after Table 3-1.
-
 # Estimate ATE(1,0)
 m1 <- lm(
   std_cesd_age40 ~ factor(att22)*momcol,
@@ -138,7 +151,6 @@ m1 <- lm(
 ATEhat <- margins_summary(m1) |>
   filter(factor==paste0(D,"1")) |>
   pull(AME)
-
 
 # Estimate CDE(1,0,0)
 m2 <- lm(
@@ -153,7 +165,6 @@ CDE0hat <- impcde(
   M = M,
   m = m
 )
-
 
 # Estimate NDE(1,0) and NIE(1,0)
 gdata <- nlsy
@@ -188,11 +199,11 @@ NDEhat <- mean(
   (EhatY_D1M0C-EhatY_D0M0C) * (1-PhatM_D0C) + 
   (EhatY_D1M1C-EhatY_D0M1C) * PhatM_D0C
 )
+
 NIEhat <- mean(
   (EhatY_D1M0C) * ((1-PhatM_D1C) - (1-PhatM_D0C)) +
   (EhatY_D1M1C) * (PhatM_D1C - PhatM_D0C)
 )
-
 
 # Collate estimates
 npest <- data.frame(
@@ -205,7 +216,5 @@ npest |>
     est = round(est, 2)
   )
 
-
 # Close log
 sink()
-
