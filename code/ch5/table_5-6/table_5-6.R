@@ -33,8 +33,6 @@ create_dir_if_missing(dir_log)
 # Script:      .../code/ch5/table_5-6.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R
 
 # Outputs:     .../code/ch5/_LOGS/table_5-6_log.txt
 
@@ -43,20 +41,16 @@ create_dir_if_missing(dir_log)
 #              Imputation with NLSY.
 #-------------------------------------------------------------------------------
 
-
 #-------------------------------------------------#
-#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
-#------------------------------------------------#
-
-# The following packages are required for replicate results:
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
-    "paths" # Main Package for this exercise
+    "paths",
+    "devtools"
   )
 
-# Function below will automatically download the packages you need
-# Otherwise simply load the required packages
 install_and_load <- function(pkg_list) {
   for (pkg in pkg_list) {
     if (!requireNamespace(pkg, quietly = TRUE)) {  
@@ -69,12 +63,9 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
+install_github("causalMedAnalysis/cmedR")
 
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -192,4 +183,3 @@ print(glm_paths$summary_df)
 
 # Close log
 sink()
-
