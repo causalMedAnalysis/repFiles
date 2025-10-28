@@ -5,6 +5,21 @@ dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -13,52 +28,41 @@ log_path <- paste0(dir_log, "/", title, "_log.txt")
 # Script:      .../code/ch3/table_3-7.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R
 
 # Outputs:     .../code/ch3/_LOGS/table_3-7_log.txt
 
 # Description: Replicates Chapter 3, Table 3-7: Total, Direct, and Indirect
-#              Effects of Job Training on Employment as Estimated from JOBSII.
+#              Effects of Job Training on Employment as Estimated from JOBSII Study.
 #-------------------------------------------------------------------------------
 
-#------------------------#
-#  INSTALL DEPENDENCIES  #
-#------------------------#
-# The following packages are used to parallelize the bootstrap.
-dependencies <- c("doParallel", "doRNG", "foreach")
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "doParallel",
+    "doRNG", 
+    "foreach",
+    "devtools"
+  )
 
-#install.packages(dependencies)
-# ^ Uncomment this line above to install these packages.
-# And note that, once you have installed these packages, there is no need for
-# you to load these packages with the library function to run the code in this
-# script.
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
+install_and_load(packages)
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# product-of-coefficients estimator, based on linear models
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
-# simulation estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
-# regression imputation CDE estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/impcde.R")
-# IPW estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
-# IPW CDE estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R")
+install_github("causalMedAnalysis/cmedR")
+
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -72,7 +76,7 @@ D <- "treat"
 # mediator
 M <- "job_seek"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "econ_hard",
   "sex",
@@ -118,13 +122,6 @@ out_lin <- linmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
-  # argument to FALSE), the results may differ slightly, due to simulation
-  # variance (even if you specify the same seed).
 )
 
 #-------------------------------------------------#
@@ -140,12 +137,14 @@ formula_M_string <- paste(M, "~", predictors_M)
 # Outcome model formula
 ## main effects
 predictors_Y <- paste(c(D,M,C), collapse = " + ")
+
 ## D x M interaction
 predictors_Y <- paste(
   predictors_Y,
   "+",
   paste(D, M, sep = ":", collapse = " + ")
 )
+
 ## full formula
 formula_Y_string <- paste(Y, "~", predictors_Y)
 
@@ -172,23 +171,11 @@ out_sim <- medsim(
   boot = TRUE,
   boot_reps = n_reps,
   seed = 3308004
-  # ^ Because of its resource intensity, running a non-parallelized bootstrap
-  # of the simulation estimator is not advisable. Therefore, unlike the other
-  # estimator functions, the parallelized bootstrap is the only implemented
-  # bootstrap in the medsim() function. If you request a bootstrap (as in the
-  # code above), you must have installed the following R packages:
-  # doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library
-  # function.)
 )
 
 # Estimate CDE(1,0,4) by regression imputation estimator
 mod_Y <- glm(
-  #as.formula(formula_Y_string),
   work1 ~ treat*job_seek + econ_hard + sex + age + nonwhite + educ + income,
-  # ^ scoping issues with the update function (used in the impcde bootstrap)
-  # require us to directly specify the formula, rather than reference the
-  # formula_Y_string object
   family = binomial(link = "logit"),
   data = jobs
 )
@@ -203,13 +190,6 @@ out_imp_cde <- impcde(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
-  # argument to FALSE), the results may differ slightly, due to simulation
-  # variance (even if you specify the same seed).
 )
 
 #-----------------#
@@ -240,13 +220,6 @@ out_ipw <- ipwmed(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
-  # argument to FALSE), the results may differ slightly, due to simulation
-  # variance (even if you specify the same seed).
 )
 
 #---------------------#
@@ -257,7 +230,6 @@ out_ipw <- ipwmed(
 # IPW CDE function here, treating the mediator as pseudo-continuous.
 
 # Define inner custom IPW function
-# ----------------------------------------
 custom_ipwcde_inner <- function(
     data,
     D,
@@ -360,7 +332,15 @@ custom_ipwcde_inner <- function(
 }
 
 # Define outer custom IPW function (bootstrapping the inner function)
-# ----------------------------------------
+trimQ <- function(x, low = 0.01, high = 0.99) {
+  min <- quantile(x, low)
+  max <- quantile(x, high)
+  
+  x[x<min] <- min
+  x[x>max] <- max
+  x
+}
+
 custom_ipwcde <- function(
     data,
     D,
@@ -434,9 +414,6 @@ custom_ipwcde <- function(
   if (!grepl(pattern = D, x = formula_M_string, fixed = TRUE)) {
     warning(paste(strwrap("Warning: Check whether the exposure variable is among the predictors in the formula_M_string. The exposure should be among the predictors in the formula_M_string."), collapse = "\n"))
   }
-  # ^ Note that the grepl-based warning checks are fairly simple, based solely
-  # on whether the string is detected. For now, we are not using more complex
-  # checks searching for full words in the model formula.
 
   # compute point estimates
   est <- custom_ipwcde_inner(
@@ -555,7 +532,6 @@ custom_ipwcde <- function(
 }
 
 # Run custom IPW function
-# ----------------------------------------
 out_ipw_cde <- custom_ipwcde(
   data = jobs,
   D = D,
@@ -568,13 +544,6 @@ out_ipw_cde <- custom_ipwcde(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
-  # argument to FALSE), the results may differ slightly, due to simulation
-  # variance (even if you specify the same seed).
 )
 
 #-------------------#
@@ -660,4 +629,3 @@ options(width = width_curr)
 
 # Close log
 sink()
-
