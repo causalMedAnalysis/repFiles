@@ -1,13 +1,29 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "figure_3-10"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
 
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 # Open log
 sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -16,8 +32,6 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch3/figure_3-10.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/JOBSII/Jobs-NoMiss-Binary.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
 
 # Outputs:     .../code/ch3/_LOGS/figure_3-10_log.txt
 
@@ -26,40 +40,33 @@ sink(log_path, split = TRUE)
 #              Unobserved Mediator-Outcome Confounding.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "gridExtra",
+    "metR", 
+    "devtools"
+  )
 
-#------------------------#
-#  INSTALL DEPENDENCIES  #
-#------------------------#
-# The following packages are used to create Figure 3-10.
-dependencies <- c("gridExtra", "metR")
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
-#install.packages(dependencies)
-# ^ Uncomment this line above to install these packages.
+install_and_load(packages)
 
+install_github("causalMedAnalysis/cmedR")
 
-
-
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(gridExtra)
-library(metR)
-library(tidyverse)
-library(haven)
-
-
-
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# product-of-coefficients estimator, based on linear models
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
-
-
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -73,7 +80,7 @@ D <- "treat"
 # mediator
 M <- "job_seek"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "econ_hard",
   "sex",
@@ -86,9 +93,6 @@ C <- c(
 # mediator value for CDE
 m <- 4
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -98,9 +102,6 @@ jobs_raw <- read_stata(
 
 jobs <- jobs_raw |>
   zap_labels()
-
-
-
 
 #--------------------#
 #  ESTIMATE EFFECTS  #
@@ -116,9 +117,6 @@ out <- linmed(
   m = m,
   interaction_DM = TRUE
 )
-
-
-
 
 #---------------------------#
 #  BIAS-ADJUSTED ESTIMATES  #
@@ -136,14 +134,10 @@ adj_grid <- cbind(
   nie_adj = out$NIE + (sens_grid$delta_UYgivCDM * sens_grid$delta_DUgivCM)
 )
 
-
-
-
 #------------------------#
 #  CREATE CONTOUR PLOTS  #
 #------------------------#
 # Create contour plots of bias-adjusted estimates against sensitivity parameters
-
 # Common specifications
 common_specs <- list(
   scale_colour_distiller(palette="Greys", direction=1),
@@ -222,7 +216,5 @@ ggsave(
   dpi = 600
 )
 
-
 # Close log
 sink()
-
