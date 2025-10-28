@@ -25,7 +25,6 @@ create_dir_if_missing <- function(dir) {
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
 
-
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -34,8 +33,6 @@ create_dir_if_missing(dir_log)
 # Script:      .../code/ch5/table_5-9.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/Brader_et_al2008/Brader_et_al2008.RData
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R
 
 # Outputs:     .../code/ch5/_LOGS/table_5-9_log.txt
 
@@ -44,20 +41,15 @@ create_dir_if_missing(dir_log)
 #              from the Regression Imputation Approach.
 #-------------------------------------------------------------------------------
 
-
 #-------------------------------------------------#
-#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
-#------------------------------------------------#
-
-# The following packages are required to replicate results
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
-    "paths"
+    "paths",
+    "devtools"
   )
-
-# Function below will automatically download the packages you need
-# Otherwise simply load the packages
 
 install_and_load <- function(pkg_list) {
   for (pkg in pkg_list) {
@@ -71,14 +63,9 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
+install_github("causalMedAnalysis/cmedR")
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/pathimp.R")
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -160,7 +147,6 @@ Brader <-
     vars(emo, p_harm, ppage, female, hs, sc, ba, ppincimp), 
     ~ . - mean(., na.rm = TRUE)  
   )
-
 
 #------------------------------------------------------------------------------#
 #                            REPLICATE TABLE 5.9                               #
@@ -300,7 +286,6 @@ Paths_DMCInteraction <-
     out_ipw = FALSE
   )$summary_df
 
-
 #------------------------#
 #   COLLATE RESULTS      #
 #------------------------#
@@ -330,4 +315,3 @@ print(master)
 
 # Close log
 sink()
-
