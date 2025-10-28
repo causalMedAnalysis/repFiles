@@ -1,13 +1,29 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-2"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
 
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 # Open log
 sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -16,8 +32,6 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch3/table_3-2.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R
 
 # Outputs:     .../code/ch3/_LOGS/table_3-2_log.txt
 
@@ -26,26 +40,31 @@ sink(log_path, split = TRUE)
 #              Linear Models Fit to the NLSY.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "devtools"
+  )
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
+install_and_load(packages)
 
+install_github("causalMedAnalysis/cmedR")
 
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# product-of-coefficients estimator, based on linear models
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/linmed.R")
-
-
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -59,7 +78,7 @@ D <- "att22"
 # mediator
 M <- "ever_unemp_age3539"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "female",
   "black",
@@ -82,9 +101,6 @@ key_vars <- c(
 # mediator value for CDE
 m <- 0
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -97,9 +113,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
 
-
-
-
 #-------------------------#
 #  ADDITIVE LINEAR MODEL  #
 #-------------------------#
@@ -111,9 +124,6 @@ out1 <- linmed(
   C = C,
   m = m
 )
-
-
-
 
 #--------------------------------#
 #  INTERACTIVE MODEL: Version A  #
@@ -128,9 +138,6 @@ out2 <- linmed(
   m = m,
   interaction_DM = TRUE
 )
-
-
-
 
 #--------------------------------#
 #  INTERACTIVE MODEL, Version B  #
@@ -147,9 +154,6 @@ out3 <- linmed(
   interaction_DC = TRUE,
   interaction_MC = TRUE
 )
-
-
-
 
 #---------------------#
 #  COLLATE ESTIMATES  #
@@ -184,7 +188,5 @@ master |>
     )
   )
 
-
 # Close log
 sink()
-
