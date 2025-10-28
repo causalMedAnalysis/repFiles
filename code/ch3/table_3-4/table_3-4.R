@@ -1,13 +1,26 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-4"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
 
-# Open log
-sink(log_path, split = TRUE)
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -16,9 +29,6 @@ sink(log_path, split = TRUE)
 # Script:      .../code/ch3/table_3-4.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R
 
 # Outputs:     .../code/ch3/_LOGS/table_3-4_log.txt
 
@@ -27,28 +37,31 @@ sink(log_path, split = TRUE)
 #              the NLSY using Inverse Probability Weighting.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "devtools"
+  )
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
+install_and_load(packages)
 
+install_github("causalMedAnalysis/cmedR")
 
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# IPW estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwmed.R")
-# IPW CDE estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/ipwcde.R")
-
-
-
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -62,7 +75,7 @@ D <- "att22"
 # mediator
 M <- "ever_unemp_age3539"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "female",
   "black",
@@ -85,9 +98,6 @@ key_vars <- c(
 # mediator value for CDE
 m <- 0
 
-
-
-
 #----------------#
 #  PREPARE DATA  #
 #----------------#
@@ -99,9 +109,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
   mutate(
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #--------------------#
 #  ESTIMATE EFFECTS  #
@@ -144,9 +151,6 @@ out1_cde <- ipwcde(
   formula_M_string = formula_M_string
 )
 
-
-
-
 #---------------------#
 #  COLLATE ESTIMATES  #
 #---------------------#
@@ -160,12 +164,13 @@ master <- data.frame(
   )
 )
 
+# Open log
+sink(log_path, split = TRUE)
+
 master |>
   mutate(
     est = round(est, 3)
   )
 
-
 # Close log
 sink()
-
