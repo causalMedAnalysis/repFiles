@@ -1,13 +1,28 @@
 # Preliminaries
 chapter <- "ch5"
 title <- "table_5-4"
-dir_root <- "C:/Users/ashiv/OneDrive/Documents/Wodtke/Causal Mediation Analysis Book/Programming/Programs/Replication"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
+
+# Ensure all necessary directories exist under your root folder
+# If not, the function below will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
 
 # Open log
 sink(log_path, split = TRUE)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -26,15 +41,26 @@ sink(log_path, split = TRUE)
 #              which are reported in the text preceding Table 5.4.
 #-------------------------------------------------------------------------------
 
+#----------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES   #
+#----------------------------------------------------#
+packages <-
+  c(
+    "tidyverse", 
+    "haven"
+  )
 
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {  
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)  
+    }
+    library(pkg, character.only = TRUE)  
+  }
+}
 
-
-
+install_and_load(packages)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -51,7 +77,7 @@ M <- c(
   "incgt50k"
 )
 
-# baseline confounder(s)
+# baseline confounders
 C <- "momcol"
 
 # key variables
@@ -62,9 +88,6 @@ key_vars <- c(
   "faminc_adj_age3539", # source variable for M[2]
   "momedu" # source variable for C
 )
-
-
-
 
 #----------------#
 #  PREPARE DATA  #
@@ -79,9 +102,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
     incgt50k = as.numeric(faminc_adj_age3539>=50000),
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
-
-
-
 
 #-------------------------------#
 #  CASE COUNTS & OUTCOME MEANS  #
@@ -102,9 +122,6 @@ agg |>
     names_vary = "slowest",
     values_from = c(mean, n)
   )
-
-
-
 
 #---------------------------#
 #  NONPARAMETRIC ESTIMATES  #
@@ -128,14 +145,12 @@ agg2 <- agg |>
     sign = ifelse(as.logical(.data[[D]]), 1, -1)
   )
 
-
 # Estimate ATE(1,0)
 ATEhat_npl <- agg2 |>
   summarize(
     est = sum(sign * mean * prop_M2_CDM1 * prop_M1_CD * prop_C)
   ) |>
   pull(est)
-
 
 # Estimate PSE_{D->Y}(1,0)
 PSE1hat_npl <- agg2 |>
@@ -154,7 +169,6 @@ PSE1hat_npl <- agg2 |>
     est = sum(sign * mean * prop_M2_CdstarM1 * prop_M1_Cdstar * prop_C)
   ) |>
   pull(est)
-
 
 # Estimate PSE_{D->M2->Y}(1,0)
 PSE2hat_npl <- agg2 |>
@@ -177,7 +191,6 @@ PSE2hat_npl <- agg2 |>
   ) |>
   pull(est)
 
-
 # Estimate PSE_{D->M1~>Y}(1,0)
 PSE3hat_npl <- agg2 |>
   left_join(
@@ -196,7 +209,6 @@ PSE3hat_npl <- agg2 |>
   ) |>
   pull(est)
 
-
 # Collate estimates
 npest <- data.frame(
   param = c("ATE(1,0)", "PSE_{D->Y}(1,0)", "PSE_{D->M2->Y}(1,0)", "PSE_{D->M1~>Y}(1,0)"),
@@ -208,7 +220,5 @@ npest |>
     est = round(est, 2)
   )
 
-
 # Close log
 sink()
-
