@@ -30,12 +30,9 @@ create_dir_if_missing(dir_log)
 
 # GitHub Repo: https://github.com/causalMedAnalysis/repFiles/tree/main
 
-# Script:      .../code/ch5/table_6-2.R
+# Script:      .../code/ch6/table_6-2.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.RDS
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/mrmed.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/dmlmed.R
 
 # Outputs:     .../code/ch6/_LOGS/table_6-2_log.txt
 
@@ -45,10 +42,8 @@ create_dir_if_missing(dir_log)
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------#
-#  INSTALL DEPENDENCIES AND LOAD RERUIRED PACKAGES
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
 #-------------------------------------------------#
-
-# The following packages are required for replicate results:
 packages <-
   c(
     "survey", 
@@ -62,11 +57,9 @@ packages <-
     "Hmisc",
     "SuperLearner",
     "scales",
-    "haven"
+    "haven",
+    "devtools"
   )
-
-# Function below will automatically download the packages you need
-# Otherwise simply load the required packages
 
 install_and_load <- function(pkg_list) {
   for (pkg in pkg_list) {
@@ -80,13 +73,9 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
+install_github("causalMedAnalysis/cmedR")
 
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/mrmed.R")
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/dmlmed.R")
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
