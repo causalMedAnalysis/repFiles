@@ -22,9 +22,6 @@ create_dir_if_missing <- function(dir) {
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
 
-# Open log
-sink(log_path, split = TRUE)
-
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -112,6 +109,10 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 #-------------------------------#
 #  CASE COUNTS & OUTCOME MEANS  #
 #-------------------------------#
+
+# Open log
+sink(log_path, split = TRUE)
+
 nlsy |>
   # duplicate the dataframe to create a sub-total across the mediator
   mutate(
