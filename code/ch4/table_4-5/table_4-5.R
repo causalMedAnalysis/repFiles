@@ -6,6 +6,21 @@ dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
 
+# Ensure all necessary directories exist under your root folder
+# if not, the function will create folders for you
+
+create_dir_if_missing <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  } else {
+    message("Directory already exists: ", dir)
+  }
+}
+
+create_dir_if_missing(dir_root)
+create_dir_if_missing(dir_log)
+
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -14,9 +29,6 @@ dir_fig <- paste0(dir_root, "/figures/", chapter)
 # Script:      .../code/ch4/table_4-5.R
 
 # Inputs:      https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R
-#              https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R
 
 # Outputs:     .../code/ch4/_LOGS/table_4-5_log.txt
 
@@ -25,50 +37,34 @@ dir_fig <- paste0(dir_root, "/figures/", chapter)
 #              Scores Computed from the NLSY.
 #-------------------------------------------------------------------------------
 
-#------------------------#
-#  INSTALL DEPENDENCIES  #
-#------------------------#
-# First, install dependencies available on CRAN.
-# The following packages are used to parallelize the bootstrap.
-dependencies_cran <- c("doParallel", "doRNG", "foreach")
+#-------------------------------------------------#
+#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
+#-------------------------------------------------#
+packages <-
+  c(
+    "tidyverse",
+    "haven",
+    "doParallel",
+    "doRNG", 
+    "foreach",
+    "devtools"
+  )
 
-#install.packages(dependencies_cran)
-# ^ Uncomment this line above to install these packages.
+install_and_load <- function(pkg_list) {
+  for (pkg in pkg_list) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg, dependencies = TRUE)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
 
-# (And note that, once you have installed these packages, there is no need for
-# you to load these packages with the library function to run the code in this
-# script.)
+install_and_load(packages)
 
-# Second, install the rwrmed R package, which is available to install from
-# GitHub.
-# To install the package directly, you must first have installed the devtools
-# package (which is available on CRAN).
+install_github("causalMedAnalysis/cmedR")
 
-#install.packages("devtools")
-# ^ Uncomment this line above to install the devtools package, if you have not
-# already done so.
-
-#devtools::install_github("xiangzhou09/rwrmed")
-# ^ Uncomment this line above to install the rwrmed package from GitHub.
-
-#-------------#
-#  LIBRARIES  #
-#-------------#
-library(tidyverse)
-library(haven)
-
-#-----------------------------#
-#  LOAD CAUSAL MED FUNCTIONS  #
-#-----------------------------#
-# utilities
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/utils.R")
-# RWR estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/rwrlite.R")
-# ^ Note that rwrlite() is a wrapper for two functions from the rwrmed package.
-# It requires that you have installed rwrmed. (But you do not need to load the
-# rwrmed package beforehand, with the library function.)
-# simulation estimator
-source("https://raw.githubusercontent.com/causalMedAnalysis/causalMedR/refs/heads/main/medsim.R")
+library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
@@ -85,7 +81,7 @@ M <- "log_faminc_adj_age3539"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounder(s)
+# baseline confounders
 C <- c(
   "female",
   "black",
@@ -222,15 +218,6 @@ out_rwr <- rwrlite(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # The rwrlite() function also requires that you have installed the rwrmed R
-  # package.
-  # (You do not need to load any of these packages beforehand, with the library
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
-  # argument to FALSE), the results may differ slightly, due to simulation
-  # variance (even if you specify the same seed).
 )
 
 #------------------------#
@@ -266,14 +253,6 @@ out_sim <- medsim(
   boot = TRUE,
   boot_reps = n_reps,
   seed = 3308004
-  # ^ Because of its resource intensity, running a non-parallelized bootstrap
-  # of the simulation estimator is not advisable. Therefore, unlike the other
-  # estimator functions, the parallelized bootstrap is the only implemented
-  # bootstrap in the medsim() function. If you request a bootstrap (as in the
-  # code above), you must have installed the following R packages:
-  # doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library
-  # function.)
 )
 
 # Estimate CDE(1,0,ln(50K))
@@ -293,7 +272,15 @@ out_sim_cde <- medsim(
 #-----------------#
 
 # Define inner custom IPW function
-# ----------------------------------------
+trimQ <- function(x, low = 0.01, high = 0.99) {
+  min <- quantile(x, low)
+  max <- quantile(x, high)
+  
+  x[x<min] <- min
+  x[x>max] <- max
+  x
+}
+
 custom_ipwvent_inner <- function(
   data,
   D,
@@ -515,7 +502,13 @@ custom_ipwvent_inner <- function(
 }
 
 # Define outer custom IPW function (bootstrapping the inner function)
-# ----------------------------------------
+
+# function to combine lists of vectors with the same structure
+# (used in the parallelized bootstraps)
+comb_list_vec <- function(...) {
+  mapply(c, ..., SIMPLIFY = FALSE)
+}
+
 custom_ipwvent <- function(
   data,
   D,
@@ -718,7 +711,6 @@ custom_ipwvent <- function(
 }
 
 # Run custom IPW function
-# ----------------------------------------
 out_ipw <- custom_ipwvent(
   data = nlsy,
   D = D,
@@ -733,13 +725,6 @@ out_ipw <- custom_ipwvent(
   boot_reps = n_reps,
   boot_seed = 3308004,
   boot_parallel = TRUE
-  # ^ Note that parallelizing the bootstrap is optional, but requires that you
-  # have installed the following R packages: doParallel, doRNG, foreach.
-  # (You do not need to load those packages beforehand, with the library
-  # function.)
-  # If you choose not to parallelize the bootstrap (by setting the boot_parallel
-  # argument to FALSE), the results may differ slightly, due to simulation
-  # variance (even if you specify the same seed).
 )
 
 #-------------------#
@@ -747,7 +732,6 @@ out_ipw <- custom_ipwvent(
 #-------------------#
 master <- data.frame(
   param = c("OE(1,0)", "IDE(1,0)", "IIE(1,0)", "CDE(1,0,ln(50K))"),
-
   # RWR
   rwr_pvalue = c(
     out_rwr$pvalue_OE,
@@ -767,7 +751,6 @@ master <- data.frame(
     out_rwr$ci_IIE[2],
     out_rwr$ci_CDE[2]
   ),
-
   # simulation
   sim_pvalue = c(
     out_sim$results[3,2],
@@ -787,7 +770,6 @@ master <- data.frame(
     out_sim$results[2,4],
     out_sim_cde$results[1,4]
   ),
-
   # IPW
   ipw_pvalue = c(
     out_ipw$pvalue_OE,
@@ -825,4 +807,3 @@ options(width = width_curr)
 
 # Close log
 sink()
-
