@@ -2,19 +2,18 @@
 capture clear all
 capture log close
 set more off
-set maxvar 50000
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/rwrlite, replace 
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
-global figdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\figures\ch4\" 
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch4\_LOGS\"
+global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch4\" 
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
 	"${datadir}plowUse\"
 
 //open log
@@ -42,7 +41,7 @@ global M ln_income //mediator
 global Y women_politics //outcome
 
 //compute RWR estimates
-qui rwrlite $Y $L, dvar($D) mvar($M) cvars($C) d(1) dstar(0) m(7.5)
+qui cmed linear $Y $M ($L) $D = $C
 
 scalar IDE=_b[IDE] 
 scalar OE=_b[OE]
@@ -59,9 +58,9 @@ forval i=-0.1(0.01)0.1 {
 	forval j=-0.1(0.01)0.1 {
 		quietly replace delta_UYgivCDLM=`i' if _n==`counter'
 		quietly replace delta_DUgivC=`j'  if _n==`counter'
-		
+
 		local counter=`counter'+1
-		 
+
 		set obs `=_N+1'
 	}
 }

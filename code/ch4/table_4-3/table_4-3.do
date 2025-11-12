@@ -6,14 +6,14 @@ set maxvar 50000
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/ventsim, replace //module to estimate interventional effects
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch4\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -25,7 +25,7 @@ use "${datadir}NLSY79\nlsy79BK_ed2.dta"
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, ///
 	female, black, hispan, paredu, parprof, parinc_prank, famsize, afqt3)
-	
+
 //standardize ces-d scores
 egen std_cesd_age40=std(cesd_age40)
 
@@ -40,19 +40,21 @@ global Y std_cesd_age40 //outcome
 set seed 3308004
 
 //compute point estimates using simulation w/ DxM interaction
-qui ventsim $Y, dvar($D) mvar($M) lvars($L) cvars($C) d(1) dstar(0) m(10.82) ///
-	mreg(regress) yreg(regress) lregs(logit) nsim(2000) reps(2)
-
+qui cmed sim ((regress) $Y) ((regress) $M) ((logit) $L) $D = $C, nsim(2000) reps(2) 
+mat list e(b)
+	
+qui cmed sim ((regress) $Y) $M ((logit) $L) $D = $C, mvalue(10.82) nsim(2000) reps(2) 
 mat list e(b)
 
 //compute point estimates using simulation w/ DxM, CxD, CxM, and LxM interactions
-qui ventsim $Y, dvar($D) mvar($M) lvars($L) cvars($C) d(1) dstar(0) m(10.82) ///
-	mreg(regress) yreg(regress) lregs(logit) nsim(2000) cxd cxm lxm reps(2)
+qui cmed sim ((regress) $Y) ((regress) $M) ((logit) $L) $D = $C, nsim(2000) reps(2) cxd cxm lxm 
+mat list e(b)
 
+qui cmed sim ((regress) $Y) $M ((logit) $L) $D = $C, mvalue(10.82) nsim(2000) reps(2) cxd cxm lxm 
 mat list e(b)
 
 log close
 
-//note the medsim estimates differ slightly from those reported in the text,
+//note that the cmed estimates differ slightly from those reported in the text,
 //which are based on the R implementation. This is due only to monte carlo
 //error and differences in random number seeding.

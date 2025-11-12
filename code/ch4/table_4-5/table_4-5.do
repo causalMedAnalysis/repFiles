@@ -6,16 +6,14 @@ set maxvar 50000
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/rwrlite, replace 
-github install causalMedAnalysis/ventsim, replace 
-github install causalMedAnalysis/ipwvent, replace
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch4\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -27,7 +25,7 @@ use "${datadir}NLSY79\nlsy79BK_ed2.dta"
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, ///
 	female, black, hispan, paredu, parprof, parinc_prank, famsize, afqt3)
-	
+
 //standardize ces-d scores
 egen std_cesd_age40=std(cesd_age40)
 
@@ -39,28 +37,56 @@ global M log_faminc_adj_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
 //compute RWR interval estimates
-qui rwrlite $Y $L, dvar($D) mvar($M) cvars($C) d(1) dstar(0) m(10.82) cxd cxm lxm ///
+qui cmed linear $Y $M ($L) $D = $C, cxd cxm lxm ///
 	reps(2000) seed(8675309) saving("${datadir}\bootrwr.dta", replace)
 
 mat list e(ci_percentile)
 
-//compute simulation interval estimates
-set seed 3308004
+qui cmed linear $Y $M ($L) $D = $C, m(10.82) cxd cxm lxm ///
+	reps(2000) seed(8675309) saving("${datadir}\bootrwr_cde.dta", replace)
 
-qui ventsim $Y, dvar($D) mvar($M) lvars($L) cvars($C) d(1) dstar(0) m(10.82) ///
-	mreg(regress) yreg(regress) lregs(logit) nsim(2000) cxd cxm lxm ///
-	reps(2000) seed(8675309) saving("${datadir}\bootsim.dta", replace)
+mat list e(ci_percentile)
+
+//compute simulation interval estimates
+qui cmed sim ((regress) $Y) ((regress) $M) ((logit) $L) $D = $C, ///
+	cxd cxm lxm nsim(2000) reps(2000) seed(8675309) ///
+	saving("${datadir}\bootsim.dta", replace)
+
+mat list e(ci_percentile)
+
+qui cmed sim ((regress) $Y) $M ((logit) $L) $D = $C, mvalue(10.82) ///
+	cxd cxm lxm nsim(2000) reps(2000) seed(8675309) ///
+	saving("${datadir}\bootsim_cde.dta", replace)
 
 mat list e(ci_percentile)
 
 //compute IPW interval estimates
-qui ipwvent $Y, dvar($D) mvar($M) lvar($L) cvars($C) d(1) dstar(0) m(10.82) ///
-	mreg(regress) lreg(logit) censor(1 99) cxd lxd ///
-	reps(2000) seed(8675309) saving("${datadir}\bootipw.dta", replace)
+qui cmed ipw $Y ((regress) $M) ((logit) $L) $D = $C, censor(1 99) ///
+	cxd lxd reps(2000) seed(8675309) saving("${datadir}\bootipw.dta", replace)
+
+mat list e(ci_percentile)
+
+qui cmed ipw $Y ((regress) $M) ($L) $D = $C, m(10.82) censor(1 99) ///
+	cxd lxd reps(2000) seed(8675309) saving("${datadir}\bootipw_cde.dta", replace)
 
 mat list e(ci_percentile)
 
 //compute p-values for null of no effect
+qui use "${datadir}\bootrwr.dta", clear
+merge 1:1 _n using "${datadir}\bootrwr_cde.dta"
+save "${datadir}\bootrwr.dta", replace
+erase "${datadir}\bootrwr_cde.dta"
+
+qui use "${datadir}\bootsim.dta", clear
+merge 1:1 _n using "${datadir}\bootsim_cde.dta"
+save "${datadir}\bootsim.dta", replace
+erase "${datadir}\bootsim_cde.dta"
+
+qui use "${datadir}\bootipw.dta", clear
+merge 1:1 _n using "${datadir}\bootipw_cde.dta"
+save "${datadir}\bootipw.dta", replace
+erase "${datadir}\bootipw_cde.dta"
+
 foreach method in rwr sim ipw {
 	di "P-values for `method' estimates:"
 	qui use "${datadir}\boot`method'.dta", clear
@@ -90,10 +116,10 @@ foreach method in rwr sim ipw {
 log close
 
 //some of the estimates differ slightly from those reported in the text, 
-//which are based on the R implementation. This is variously due to slight 
+//which are based on the R implementation. This is variously due to minor 
 //differences in how the weights are censored, to Monte Carlo error, or to 
 //differences in random number seeding that influence the bootstrap samples
 
-//note: ventsim with large nsim() and reps() can be time consuming to run in 
+//note: -cmed sim- with large nsim() and reps() can be time consuming to run in 
 //Stata because it cannot parallelize the bootstrap replications. Consider 
-//switching to R if computation time is a concern.
+//switching to R implementation of -medsim- if computation time is a concern.

@@ -10,16 +10,15 @@ net install github, from("https://haghish.github.io/github/")
 net install parallel, from("https://raw.github.com/gvegayon/parallel/stable/") replace 
 mata mata mlib index
 
-github install causalMedAnalysis/rwrlite, replace 
-github install causalMedAnalysis/ipwvent, replace
+github install causalMedAnalysis/cmed
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch4\_LOGS\"
-global figdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\figures\ch4\" 
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch4\_LOGS\"
+global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch4\" 
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
 	"${datadir}plowUse\"
 
 //open log
@@ -47,20 +46,34 @@ global M ln_income //mediator
 global Y women_politics //outcome
 
 //compute RWR estimates
-qui rwrlite $Y $L, dvar($D) mvar($M) cvars($C) d(1) dstar(0) m(7.5) ///
-	reps(2000) seed(60637)
+qui cmed linear $Y $M ($L) $D = $C, reps(2000) seed(60637)
 
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
-matrix rwrResults = b_matrix, ci_matrix
+matrix rwrIE = b_matrix, ci_matrix
+
+qui cmed linear $Y $M ($L) $D = $C, m(7.5) reps(2000) seed(60637)
+
+matrix b_matrix = e(b)'
+matrix ci_matrix = e(ci_percentile)'
+matrix rwrCDE = b_matrix, ci_matrix
+
+matrix rwrResults = rwrIE \ rwrCDE
 
 //compute IPW estimates
-qui ipwvent $Y, dvar($D) mvar($M) lvar($L) cvars($C) d(1) dstar(0) m(7.5) ///
-	mreg(regress) lreg(ologit) censor(3 97) reps(2000) seed(60637)
-	
+cmed ipw $Y ((regress) $M) ((ologit) $L) $D = $C, censor(3 97) reps(2000) seed(60637)
+
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
-matrix ipwResults = b_matrix, ci_matrix
+matrix ipwIE = b_matrix, ci_matrix
+
+cmed ipw $Y ((regress) $M) ($L) $D = $C, m(7.5) censor(3 97) reps(2000) seed(60637)
+
+matrix b_matrix = e(b)'
+matrix ci_matrix = e(ci_percentile)'
+matrix ipwCDE = b_matrix, ci_matrix
+
+matrix ipwResults = ipwIE \ ipwCDE
 
 //compute simulation estimates w/ custom function for fitting ordinal logit 
 //model for L and logistic binomial model for Y
@@ -68,7 +81,7 @@ capture program drop custsim
 program define custsim, rclass
 
 	syntax [, nsim(integer 10)] 
-	
+
 	ologit $L $D $C
 	est store Lmodel
 
@@ -152,7 +165,7 @@ program define custsim, rclass
 	egen Y1L1M0_=rowmean(Y1L1M0_*)
 	egen Y1L1m_=rowmean(Y1L1m_*)
 	egen Y0L0m_=rowmean(Y0L0m_*)
-	
+
 	reg Y0L0M0_
 	local Ehat_Y0L0M0=_b[_cons]
 	drop Y0L0M0*
@@ -172,31 +185,26 @@ program define custsim, rclass
 	reg Y0L0m_
 	local Ehat_Y0L0m=_b[_cons]
 	drop Y0L0m*
-	
+
 	return scalar oe=`Ehat_Y1L1M1'-`Ehat_Y0L0M0'
 	return scalar ide=`Ehat_Y1L1M0'-`Ehat_Y0L0M0'
 	return scalar iie=`Ehat_Y1L1M1'-`Ehat_Y1L1M0'
 	return scalar cde=`Ehat_Y1L1m'-`Ehat_Y0L0m'
-	
+
 	replace $D=D_orig
 	replace $L=L_orig
 	replace $M=M_orig
-	
+
 	drop D_orig L_orig M_orig _est_Lmodel _est_Mmodel _est_Ymodel
-	
+
 end
 
 //parallelize the bootstrap to reduce wall time
 parallel initialize 18 //specify number of logical cores for each child process
 
-global rseeds ""
-forval i=1/18 {
-    global rseeds "$rseeds 5000`i'" //specify seed for each child process
-}
-
 parallel bs, expr(OE=r(oe) IDE=r(ide) IIE=r(iie) CDE=r(cde)) ///
-	reps(2000) seed("$rseeds"): custsim, nsim(2000)
-		
+	reps(2000): custsim, nsim(2000)
+
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
 matrix simResults = b_matrix, ci_matrix
@@ -227,9 +235,9 @@ twoway (rcap ul ll estimand, horizontal) ///
        (scatter estimand pointEst, mcolor(black) msize(small)), ///
        legend(off) ytitle("") xtitle("Standard Deviations") ///
        yscale(reverse) xline(0) ///
-	   ylabel(1/4, valuelabel angle(horizontal) noticks nogrid) ///
-	   xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
-	   title("RWR Estimates", size(medium))
+       ylabel(1/4, valuelabel angle(horizontal) noticks nogrid) ///
+       xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
+       title("RWR Estimates", size(medium))
 
 graph save "${figdir}\rwr_plot.gph", replace
 
@@ -258,9 +266,9 @@ twoway (rcap ul ll estimand, horizontal) ///
        (scatter estimand pointEst, mcolor(black) msize(small)), ///
        legend(off) ytitle("") xtitle("Standard Deviations") ///
        yscale(reverse) xline(0) ///
-	   ylabel(1/4, valuelabel angle(horizontal) noticks nogrid) ///
-	   xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
-	   title("Simulation Estimates", size(medium))
+       ylabel(1/4, valuelabel angle(horizontal) noticks nogrid) ///
+       xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
+       title("Simulation Estimates", size(medium))
 
 graph save "${figdir}\sim_plot.gph", replace
 
@@ -289,9 +297,9 @@ twoway (rcap ul ll estimand, horizontal) ///
        (scatter estimand pointEst, mcolor(black) msize(small)), ///
        legend(off) ytitle("") xtitle("Difference in Proportions") ///
        yscale(reverse) xline(0) ///
-	   ylabel(1/4, valuelabel angle(horizontal) noticks nogrid) ///
-	   xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
-	   title("IPW Estimates", size(medium))
+       ylabel(1/4, valuelabel angle(horizontal) noticks nogrid) ///
+       xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
+       title("IPW Estimates", size(medium))
 
 graph save "${figdir}\ipw_plot.gph", replace
 
@@ -301,7 +309,7 @@ graph combine ///
 	"${figdir}\sim_plot.gph" ///
 	"${figdir}\ipw_plot.gph", ///
 	col(3) row(1) ysize(4.5) xsize(10) scheme(s2mono)
-	
+
 graph export "${figdir}\figure_4-9.pdf", replace
 
 //erase temporary figures
@@ -312,10 +320,10 @@ erase "${figdir}\ipw_plot.gph"
 log close
 
 //some of the estimates differ slightly from those reported in the text, 
-//which are based on the R implementation. This is variously due to slight 
+//which are based on the R implementation. This is variously due to minor 
 //differences in how the weights are censored, to Monte Carlo error, or to 
 //differences in random number seeding that influence the bootstrap samples
 
-//note: ventsim with large nsim() and reps() can be time consuming to run in 
+//note: -cmed sim- with large nsim() and reps() can be time consuming to run in 
 //Stata because it cannot parallelize the bootstrap replications. Consider 
-//switching to R if computation time is a concern.
+//switching to R implementation of -medsim- if computation time is a concern.
