@@ -5,15 +5,14 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/ipwmed, replace //module to estimate natural effects
-github install causalMedAnalysis/ipwcde, replace //module to estimate controlled direct effects
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch3\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -25,7 +24,7 @@ use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, female, black, ///
 	hispan, paredu, parprof, parinc_prank, famsize, afqt3)
-	
+
 //standardize ces-d scores
 egen std_cesd_age40=std(cesd_age40)
 
@@ -36,13 +35,13 @@ global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
 //compute interval estimates using bootstrap
-qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor(1 99) ///
-	reps(2000) seed(3308004) saving("${datadir}\bootmed.dta", replace)
+qui cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) seed(3308004) ///
+	saving("${datadir}\bootmed.dta", replace)
 
 mat list e(ci_percentile)
 
-qui ipwcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C) censor(1 99) ///
-	reps(2000) seed(3308004) saving("${datadir}\bootcde.dta", replace)
+qui cmed ipw $Y ((logit) $M) $D = $C, m(0) censor(1 99) reps(2000) seed(3308004) ///
+	saving("${datadir}\bootcde.dta", replace)
 
 mat list e(ci_percentile)
 
@@ -73,12 +72,12 @@ qui gen CDE_lt=0
 qui replace CDE_lt=1 if CDE<0
 qui sum CDE_lt
 scalar p_lt = r(mean)
-	
+
 qui gen CDE_rt=0 
 qui replace CDE_rt=1 if CDE>0
 qui sum CDE_rt
 scalar p_rt = r(mean)
-	
+
 di "CDE p-value"
 di min(p_rt, p_lt)*2
 
@@ -88,8 +87,7 @@ erase "${datadir}\bootcde.dta"
 
 log close
 
-//note the ipwmed and ipwcde interval estimates and pvals differ slightly 
+//note that the cmed interval estimates and pvals differ slightly 
 //from those reported in the text, which are based on the R implementation. 
-//This is due to slight differences in how the weights are censored and also to
+//This is due to minor differences in how the weights are censored and also to
 //differences in random numder seeding that influence the bootstrap samples 
-//selected

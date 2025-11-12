@@ -5,15 +5,15 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/ipwmed, replace //module to estimate natural effects
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch3\_LOGS\"
-global figdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\figures\ch3\" 
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
+global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch3\" 
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -36,8 +36,8 @@ global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
 //compute bootstrap estimates based on IPW
-qui ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor(1 99) ///
-	reps(2000) seed(3308004) saving("${datadir}\bootmed.dta", replace)
+qui cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) seed(3308004) ///
+	saving("${datadir}\bootmed.dta", replace)
 
 //plot histogram of bootstrap estimates
 use "${datadir}\bootmed.dta", clear

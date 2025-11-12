@@ -2,21 +2,18 @@
 capture clear all
 capture log close
 set more off
+set maxvar 10000
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/linmed, replace 
-github install causalMedAnalysis/lincde, replace
-github install causalMedAnalysis/medsim, replace 
-github install causalMedAnalysis/impcde, replace 
-github install causalMedAnalysis/ipwmed, replace 
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch3\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/JOBSII/Jobs-NoMiss-Binary.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/JOBSII/Jobs-NoMiss-Binary.dta" ///
 	"${datadir}JOBSII\"
 
 //open log
@@ -35,20 +32,17 @@ global Y work1 //outcome
 set seed 3308004
 
 //compute point and interval estimates based on linear models
-linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) reps(2000) seed(60637)
-lincde $Y, dvar($D) mvar($M) d(1) dstar(0) m(4) cvars($C) reps(2000) seed(60637)
+cmed linear $Y $M $D = $C, reps(2000) seed(60637)
+cmed linear $Y $M $D = $C, m(4) reps(2000) seed(60637)
 
 //compute point and interval estimates based on simulation/imputation
-medsim $Y, dvar($D) mvar($M) d(1) dstar(0) yreg(logit) mreg(regress) ///
-	cvars($C) nsim(1000) reps(2000) seed(60637)
-
-impcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(4) yreg(logit) cvars($C) ///
-	reps(2000) seed(60637) 
+cmed sim ((logit) $Y) ((regress) $M) $D = $C, nsim(1000) reps(2000) seed(60637)
+cmed impute ((logit) $Y) $M $D = $C, m(4) reps(2000) seed(60637) 
 
 //compute point and interval estimates based on inverse probability weighting
-ipwmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) censor(1 99) reps(2000) seed(60637)
+cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) seed(60637)
 
-//define function to estimate CDE using IPW with a continuous mediator
+//define custom function to estimate CDE using IPW with a continuous mediator
 capture program drop ipwcde_Mcon
 program define ipwcde_Mcon, rclass
 
@@ -105,6 +99,6 @@ log close
 //differences in how the weights are censored, to Monte Carlo error, or to 
 //differences in random number seeding that influence the bootstrap samples
 
-//note: medsim with large nsim() and reps() can be time consuming to run in 
+//note: -cmed sim- with large nsim() and reps() can be time consuming to run in 
 //Stata because it cannot parallelize the bootstrap replications. Consider 
-//switching to R implementation of medsim if computation time is a concern.
+//switching to R implementation of -medsim- if computation time is a concern.

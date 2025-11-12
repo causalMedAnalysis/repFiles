@@ -5,15 +5,15 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/linmed, replace 
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch3\_LOGS\"
-global figdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\figures\ch3\" 
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
+global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch3\" 
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/JOBSII/Jobs-NoMiss-Binary.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/JOBSII/Jobs-NoMiss-Binary.dta" ///
 	"${datadir}JOBSII\"
 
 //open log
@@ -32,7 +32,7 @@ global Y work1 //outcome
 set seed 3308004
 
 //compute point estimates based on linear models
-qui linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) 
+qui cmed linear $Y $M $D = $C
 
 scalar NDE=_b[NDE] 
 scalar NIE=_b[NIE]

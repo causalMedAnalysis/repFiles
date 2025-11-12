@@ -5,15 +5,14 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/linmed, replace //module to estimate natural effects
-github install causalMedAnalysis/lincde, replace //module to estimate controlled direct effects
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch3\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -36,24 +35,24 @@ global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
 //compute point estimates using additive linear models
-qui linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) nointer
+qui cmed linear $Y $M $D = $C, nointer
 mat list e(b)
 
-qui lincde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C) nointer
+qui cmed linear $Y $M $D = $C, nointer m(0)
 mat list e(b)
 
 //compute point estimates from linear models with DxM interaction
-qui linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C)
+qui cmed linear $Y $M $D = $C
 mat list e(b)
 
-qui lincde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C)
+qui cmed linear $Y $M $D = $C, m(0)
 mat list e(b)
 		
 //compute point estimates from linear models with DxM, CxD, and CxM interactions
-qui linmed $Y $M, dvar($D) d(1) dstar(0) cvars($C) cxd cxm
+qui cmed linear $Y $M $D = $C, cxd cxm
 mat list e(b)
 
-qui lincde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) cvars($C) cxd cxm
+qui cmed linear $Y $M $D = $C, m(0) cxd cxm
 mat list e(b)
 
 log close

@@ -2,18 +2,18 @@
 capture clear all
 capture log close
 set more off
+set maxvar 10000
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/medsim, replace //module to estimate natural effects
-github install causalMedAnalysis/impcde, replace //module to estimate controlled direct effects
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch3\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -39,29 +39,22 @@ global Y std_cesd_age40 //outcome
 set seed 3308004
 
 //compute point estimates using simulation w/ additive models
-qui medsim $Y, dvar($D) mvar($M) d(1) dstar(0) yreg(regress) mreg(logit) ///
-	cvars($C) nsim(2000) nointer reps(2)
-	
+qui cmed sim ((regress) $Y) ((logit) $M) $D = $C, nsim(2000) nointer reps(2)
 mat list e(b)
 
-qui impcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) yreg(regress) ///
-	cvars($C) nointer
-
+qui cmed impute ((regress) $Y) $M $D = $C, m(0) nointer //use imputation for cde
 mat list e(b)
-	
+
 //compute point estimates using simulation w/ with DxM, CxD, and CxM interactions
-qui medsim $Y, dvar($D) mvar($M) d(1) dstar(0) yreg(regress) mreg(logit) ///
-	cvars($C) nsim(2000) cxd cxm reps(2)
-	
+
+qui cmed sim ((regress) $Y) ((logit) $M) $D = $C, nsim(2000) cxd cxm reps(2)
 mat list e(b)
 
-qui impcde $Y, dvar($D) mvar($M) d(1) dstar(0) m(0) yreg(regress) ///
-	cvars($C) cxd cxm
-
+qui cmed impute ((regress) $Y) $M $D = $C, m(0) cxd cxm //use imputation for cde
 mat list e(b)
 
 log close
 
-//note the medsim estimates differ slightly from those reported in the text,
+//note that the cmed estimates differ slightly from those reported in the text,
 //which are based on the R implementation. This is due only to monte carlo
 //error and differences in random number seeding.
