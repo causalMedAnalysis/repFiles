@@ -4,11 +4,11 @@ capture log close
 set more off
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoffrey Wodtke\Dropbox\shared\causal_mediation_text\code\ch6\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -202,14 +202,16 @@ program define dmlate, rclass
 	forval k=1/5 {
 
 		//fit random forest for the exposure
-		qui rforest $D $C if `kpart'!=`k', type(class) iter(200) lsize(20) seed(60657)
+		qui rforest $D $C if `kpart'!=`k', type(class) ///
+			iter(1000) lsize(20) seed(60657)
 
 		tempvar	xxphatD0_C xxphatD1_C
 		qui predict `xxphatD0_C' `xxphatD1_C' if `kpart'==`k', pr
 		qui replace `phat_D1_C' = `xxphatD1_C' if `kpart'==`k'
 
 		//fit random forest for the outcome
-		qui rforest $Y $D $C if `kpart'!=`k', type(reg) iter(200) lsize(20) seed(60657)
+		qui rforest $Y $D $C if `kpart'!=`k', type(reg) ///
+			iter(1000) lsize(20) seed(60657)
 
 		//compute residuals	
 		tempvar	xxyhat

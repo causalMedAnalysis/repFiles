@@ -4,11 +4,11 @@ capture log close
 set more off
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch6\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -675,7 +675,7 @@ dmlvent
 
 log close
 
-//note the estimates differ from those reported in the text, which are 
+//note that the estimates differ from those reported in the text, which are 
 //based on the R implementation. This is due to differences in how the 
 //weights are censored and to the use of random forests exclusively rather 
 //than a super learner in the DML estimators.

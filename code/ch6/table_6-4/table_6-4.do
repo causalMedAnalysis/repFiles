@@ -5,10 +5,9 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/mrpath, replace 
-github install causalMedAnalysis/dmlpath, replace 
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
-//install dependencies for dmlmed
+//install dependencies
 ssc install rforest, replace 
 ssc install lassopack, replace
 
@@ -16,11 +15,11 @@ ssc install lassopack, replace
 //we therefore implement DML using the LASSO only
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch6\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -44,17 +43,17 @@ global M2 log_faminc_adj_age3539 //second mediator
 global Y std_cesd_age40 //outcome
 
 //compute parametric MR (type mr2) estimates of path-specific effects
-qui mrpath $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) censor(1 99) ///
-	seed(60637) reps(2000) 
+qui cmed mr $Y ($M1 $M2) $D = $C, paths censor(1 99) reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute DML (type mr2) estimates of path-specific effects
-dmlpath $Y $M1 $M2, model(lasso) dvar($D) d(1) dstar(0) cvars($C) ///
-	censor(1 99) seed(60637)
+cmed dml $Y ($M1 $M2) $D = $C, paths method(lasso) censor(1 99) seed(60637)
 
 log close
 
-//note the estimates differ slightly from those reported in
-//the text, which are based on the R implementation
+//note that the estimates differ slightly from those reported in
+//the text, which are based on the R implementation. This is due to minor 
+//differences in how the weights are censored and to the use of the LASSO
+//exclusively rather than a super learner for the DML estimator
