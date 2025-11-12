@@ -5,15 +5,14 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/pathimp, replace //module to estimate PSEs
-github install causalMedAnalysis/pathwimp, replace //module to estimate PSEs
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch5\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -37,21 +36,19 @@ global M2 log_faminc_adj_age3539 //second mediator
 global Y std_cesd_age40 //outcome
 
 //compute pure regression imputation estimates
-qui pathimp $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) yreg(regress) nointer ///
-	reps(2000) seed(60637)
+qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths nointer reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute imputation-based weighting estimates
-qui pathwimp $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) yreg(regress) nointer ///
-	reps(2000) seed(60637)
+qui cmed impute ((regress) $Y) ($M1 $M2) ((logit) $D) = $C, paths nointer reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
 log close 
 
-//note the pathimp estimates differ slightly from those reported in
+//note the -cmed impute- estimates differ slightly from those reported in
 //the text, which are based on the R implementation. This is due to a minor 
-//difference in the default specification of the model for predicted outcomes
+//difference in the default specification of the model for the predicted outcomes

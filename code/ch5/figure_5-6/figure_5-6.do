@@ -5,15 +5,15 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/pathimp, replace //module to estimate PSEs
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
-global figdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\figures\ch5\" 
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch5\_LOGS\"
+global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch5\" 
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/Brader_et_al2008/Brader_et_al2008.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/Brader_et_al2008/Brader_et_al2008.dta" ///
 	"${datadir}Brader_et_al2008\"
 
 //open log
@@ -47,8 +47,8 @@ global M2 emo //second mediator
 global Y std_immigr //outcome
 
 //compute pure regression imputation estimates w/o interactions
-qui pathimp $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) yreg(regress) nointer
-
+qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths nointer
+	
 scalar PSE_DY=_b[PSE_DY]
 
 //compute reference values for sensitivity parameters

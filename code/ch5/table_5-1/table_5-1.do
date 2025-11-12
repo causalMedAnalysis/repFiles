@@ -5,14 +5,14 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/linmed, replace //module to estimate natural effects
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch5\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
 	"${datadir}NLSY79\"
 
 //open log
@@ -39,13 +39,13 @@ drop if missing(cesd_age40, att22, ever_unemp_age3539, female, black, ///
 egen std_cesd_age40=std(cesd_age40)
 
 //compute estimates from additive linear models
-qui linmed $Y $M1, dvar($D) d(1) dstar(0) cvars($C) nointer reps(2000) seed(60637)
+qui cmed linear $Y $M1 $D = $C, nointer reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute estimates from linear models with DxM1 interaction
-qui linmed $Y $M1, dvar($D) d(1) dstar(0) cvars($C) reps(2000) seed(60637)
+qui cmed linear $Y $M1 $D = $C, reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
@@ -61,13 +61,13 @@ drop if missing(cesd_age40, att22, log_faminc_adj_age3539, female, black, ///
 egen std_cesd_age40=std(cesd_age40)
 
 //estimate natural effects through M2 using additive linear models
-qui linmed $Y $M2, dvar($D) d(1) dstar(0) cvars($C) nointer reps(2000) seed(60637)
+qui cmed linear $Y $M2 $D = $C, nointer reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //estimate natural effects through M2 using linear models with DxM2 interaction
-qui linmed $Y $M2, dvar($D) d(1) dstar(0) cvars($C) reps(2000) seed(60637)
+qui cmed linear $Y $M2 $D = $C, reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)

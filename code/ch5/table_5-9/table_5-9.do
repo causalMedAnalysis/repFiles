@@ -5,14 +5,14 @@ set more off
 
 //install required modules
 net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/pathimp, replace //module to estimate PSEs
+github install causalMedAnalysis/cmed //module to perform causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoff\Dropbox\shared\causal_mediation_text\code\ch5\_LOGS\"
+global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch5\_LOGS\"
 
 //download data
-copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/Brader_et_al2008/Brader_et_al2008.dta" ///
+capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/Brader_et_al2008/Brader_et_al2008.dta" ///
 	"${datadir}Brader_et_al2008\"
 
 //open log
@@ -46,28 +46,25 @@ global M2 emo //second mediator
 global Y std_immigr //outcome
 
 //compute pure regression imputation estimates w/o interactions
-qui pathimp $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) yreg(regress) nointer ///
-	reps(2000) seed(60637)
+qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths nointer reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
-//compute pure regression imputation estimates w/ D x {M1,M2} interactions
-qui pathimp $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) yreg(regress) ///
-	reps(2000) seed(60637)
+//compute pure regression imputation estimates w/ Dx(M1,M2) interactions
+qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
-//compute pure regression imputation estimates w/ D x {M1,M2,C} interactions
-qui pathimp $Y $M1 $M2, dvar($D) d(1) dstar(0) cvars($C) yreg(regress) cxd ///
-	reps(2000) seed(60637)
+//compute pure regression imputation estimates w/ Dx(M1,M2,C) interactions
+qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths cxd reps(2000) seed(60637)
 
 mat list e(b)
 mat list e(ci_percentile)
 
 log close
 
-//note the pathimp estimates differ slightly from those reported in
+//note the -cmed impute- estimates differ slightly from those reported in
 //the text, which are based on the R implementation. This is due to a minor 
-//difference in the default specification of the model for predicted outcomes
+//difference in the default specification of the model for the predicted outcomes
