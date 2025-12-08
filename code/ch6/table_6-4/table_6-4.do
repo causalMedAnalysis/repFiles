@@ -4,29 +4,22 @@ capture log close
 set more off
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
+net install parallel, from("https://raw.github.com/gvegayon/parallel/stable/") replace //module for parallelization
+mata mata mlib index
 
-//install dependencies
 ssc install rforest, replace 
 ssc install lassopack, replace
 
-//note that stata does not currently support use of a superLearner
-//we therefore implement DML using the LASSO only
-
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/NLSY79/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
-	"${datadir}NLSY79\"
 
 //open log
 log using "${logdir}table_6-4.log", replace 
 
 //load data
-use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
+use "${datadir}nlsy79BK_ed2.dta", clear
 
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, ///
@@ -42,14 +35,29 @@ global M1 ever_unemp_age3539 //first mediator
 global M2 log_faminc_adj_age3539 //second mediator
 global Y std_cesd_age40 //outcome
 
+//set seed 
+//note: opt parallel requires a separate seed for each child process
+local myseed 3308004
+qui parallel numprocessors
+local ncores = max(floor(r(numprocessors) * 0.75), 1)
+local parseeds 
+forval i = 1/`ncores' {
+    local newseed = `myseed' + `i'
+    local parseeds `parseeds' " `newseed'"
+}
+
+//note that stata does not currently support use of a superLearner
+//we therefore implement DML using the LASSO only
+
 //compute parametric MR (type mr2) estimates of path-specific effects
-qui cmed mr $Y ($M1 $M2) $D = $C, paths censor(1 99) reps(2000) seed(60637)
+qui cmed mr $Y ($M1 $M2) $D = $C, paths censor(1 99) ///
+	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute DML (type mr2) estimates of path-specific effects
-cmed dml $Y ($M1 $M2) $D = $C, paths method(lasso) censor(1 99) seed(60637)
+cmed dml $Y ($M1 $M2) $D = $C, paths method(lasso) censor(1 99) seed(`myseed')
 
 log close
 

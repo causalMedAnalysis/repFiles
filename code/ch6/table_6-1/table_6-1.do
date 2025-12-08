@@ -3,19 +3,18 @@ capture clear all
 capture log close
 set more off
 
-//specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
+//install required modules
+ssc install rforest, replace
 
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
-	"${datadir}NLSY79\"
+//specify directories 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/NLSY79/" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
 
 //open log
 log using "${logdir}table_6-1.log", replace 
 
 //load data
-use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
+use "${datadir}nlsy79BK_ed2.dta", clear
 
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, ///
@@ -28,6 +27,9 @@ egen std_cesd_age40=std(cesd_age40)
 global C female black hispan paredu parprof parinc_prank famsize afqt3 //baseline confounders
 global D att22 //exposure
 global Y std_cesd_age40 //outcome
+
+//set seed 
+set seed 3308004
 
 //define regression imputation estimator for ATE
 capture program drop regimp
@@ -59,12 +61,7 @@ program define regimp, rclass
 end regimp
 
 //compute regression imputation estimates for ATE
-qui bootstrap ///
-	psi0=r(psi0) ///
-	psi1=r(psi1) ///
-	ATE=(r(psi1)-r(psi0)), ///
-		reps(2000) seed(60637): regimp
-
+qui bootstrap psi0=r(psi0) psi1=r(psi1) ATE=(r(psi1)-r(psi0)), reps(2000): regimp
 estat bootstrap, p noheader
 
 //define inverse probability weighting estimator for ATE
@@ -96,12 +93,7 @@ program define ipwate, rclass
 end ipwate
 
 //compute IPW estimates for ATE	
-qui bootstrap ///
-	psi0=r(psi0) ///
-	psi1=r(psi1) ///
-	ATE=(r(psi1)-r(psi0)), ///
-		reps(2000) seed(60637): ipwate
-
+qui bootstrap psi0=r(psi0) psi1=r(psi1) ATE=(r(psi1)-r(psi0)), reps(2000): ipwate
 estat bootstrap, p noheader
 
 //define parametric doubly-robust estimator for ATE
@@ -163,20 +155,13 @@ program define drate, rclass
 end drate
 
 //compute doubly robust estimates for ATE
-qui bootstrap ///
-	psi0=r(psi0) ///
-	psi1=r(psi1) ///
-	ATE=(r(psi1)-r(psi0)), ///
-		reps(2000) seed(60637): drate
-
+qui bootstrap psi0=r(psi0) psi1=r(psi1) ATE=(r(psi1)-r(psi0)), reps(2000): drate
 estat bootstrap, p noheader
 
 //define DML estimator for ATE
 
 //note that stata does not currently support use of a superLearner
 //we therefore implement the DML estimator using only random forests
-
-ssc install rforest
 
 capture program drop dmlate
 program define dmlate, rclass
@@ -189,7 +174,7 @@ program define dmlate, rclass
 	set seed 60637
 	qui gen u = uniform()
 	qui sort u
-	qui gen `kpart' = ceil(_n/(_N/5))
+	qui gen `kpart' = ceil(_n/(_N/10))
 	drop u
 
 	tempvar yres yhat1 yhat0 phat_D1_C
@@ -202,16 +187,14 @@ program define dmlate, rclass
 	forval k=1/5 {
 
 		//fit random forest for the exposure
-		qui rforest $D $C if `kpart'!=`k', type(class) ///
-			iter(1000) lsize(20) seed(60657)
+		qui rforest $D $C if `kpart'!=`k', type(class) iter(500) lsize(20) 
 
 		tempvar	xxphatD0_C xxphatD1_C
 		qui predict `xxphatD0_C' `xxphatD1_C' if `kpart'==`k', pr
 		qui replace `phat_D1_C' = `xxphatD1_C' if `kpart'==`k'
 
 		//fit random forest for the outcome
-		qui rforest $Y $D $C if `kpart'!=`k', type(reg) ///
-			iter(1000) lsize(20) seed(60657)
+		qui rforest $Y $D $C if `kpart'!=`k', type(reg) iter(500) lsize(20) 
 
 		//compute residuals	
 		tempvar	xxyhat

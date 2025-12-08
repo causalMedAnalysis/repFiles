@@ -3,19 +3,18 @@ capture clear all
 capture log close
 set more off
 
-//specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
-global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
+//install required modules
+ssc install rforest, replace 
 
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
-	"${datadir}NLSY79\"
+//specify directories 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/NLSY79/" 
+global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch6\_LOGS\"
 
 //open log
 log using "${logdir}table_6-3.log", replace 
 
 //load data
-use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
+use "${datadir}nlsy79BK_ed2.dta", clear
 
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, ///
@@ -23,6 +22,9 @@ drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, /
 
 //standardize ces-d scores
 egen std_cesd_age40=std(cesd_age40)
+
+//set seed 
+set seed 3308004
 
 //define multiply robust estimator for interventional effects
 capture program drop mrvent
@@ -292,7 +294,7 @@ qui bootstrap ///
 	OE=(r(psi11)-r(psi00)) ///
 	IDE=(r(psi01)-r(psi00)) ///
 	IIE=(r(psi11)-r(psi01)), ///
-	reps(2000) seed(60637): mrvent
+	reps(2000): mrvent
 
 estat bootstrap, p noheader
 
@@ -300,8 +302,6 @@ estat bootstrap, p noheader
 
 //note that stata does not currently support use of a superLearner
 //we therefore implement the DML estimator using only random forests
-
-ssc install rforest
 
 capture program drop dmlvent
 program define dmlvent, rclass
@@ -314,7 +314,7 @@ program define dmlvent, rclass
 	qui set seed 60637
 	qui gen u = uniform()
 	qui sort u
-	qui gen `kpart' = ceil(_n/(_N/5))
+	qui gen `kpart' = ceil(_n/(_N/10))
 	qui drop u
 
 	local tvars	///
@@ -344,7 +344,7 @@ program define dmlvent, rclass
 
 		qui rforest att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(class) iter(200) lsize(20) seed(60637)
+			if `kpart'!=`k', type(class) iter(500) lsize(20)
 
 		tempvar	xxphat_D0_C xxphat_D1_C xxphat_D_C
 		qui predict `xxphat_D0_C' `xxphat_D1_C', pr
@@ -355,7 +355,7 @@ program define dmlvent, rclass
 		
 		qui rforest att22 log_faminc_adj_age3539 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(class) iter(200) lsize(40) seed(60637)
+			if `kpart'!=`k', type(class) iter(500) lsize(20)
 				
 		tempvar xxphat_D0_CM xxphat_D1_CM xxphat_D_CM
 		qui predict `xxphat_D0_CM' `xxphat_D1_CM', pr
@@ -366,7 +366,7 @@ program define dmlvent, rclass
 
 		qui rforest ever_unemp_age3539 att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(class) iter(200) lsize(20) seed(60637)		
+			if `kpart'!=`k', type(class) iter(500) lsize(20)	
 
 		tempvar xxphat_L0_CD xxphat_L1_CD xxphat_L_CD
 		qui predict `xxphat_L0_CD' `xxphat_L1_CD', pr
@@ -395,7 +395,7 @@ program define dmlvent, rclass
 		
 		qui rforest ever_unemp_age3539 log_faminc_adj_age3539 att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(class) iter(200) lsize(40) seed(60637)		
+			if `kpart'!=`k', type(class) iter(500) lsize(20)	
 	
 		tempvar xxphat_L0_CDM xxphat_L1_CDM xxphat_L_CDM 
 		qui predict `xxphat_L0_CDM' `xxphat_L1_CDM', pr
@@ -424,7 +424,7 @@ program define dmlvent, rclass
 		
 		qui rforest std_cesd_age40 ever_unemp_age3539 log_faminc_adj_age3539 att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(reg) iter(200) lsize(10) seed(60637)		
+			if `kpart'!=`k', type(reg) iter(500) lsize(20)	
 				
 		tempvar xxmu_CDLM
 		qui predict `xxmu_CDLM'
@@ -513,7 +513,7 @@ program define dmlvent, rclass
 
 		qui rforest `u_11_regressand' att22 ever_unemp_age3539 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(reg) iter(200) lsize(10) seed(60637)		
+			if `kpart'!=`k', type(reg) iter(500) lsize(20)	
 				
 		qui replace att22 = 1
 		tempvar xxu_11_CL
@@ -537,7 +537,7 @@ program define dmlvent, rclass
 
 		qui rforest `u_01_regressand' att22 ever_unemp_age3539 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(reg) iter(200) lsize(10) seed(60637)		
+			if `kpart'!=`k', type(reg) iter(500) lsize(20)	
 				
 		qui replace att22 = 1
 		tempvar xxu_01_CL
@@ -565,7 +565,7 @@ program define dmlvent, rclass
 
 		qui rforest `v_CD1_regressand' att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(reg) iter(200) lsize(10) seed(60637)		
+			if `kpart'!=`k', type(reg) iter(500) lsize(20)	
 				
 		tempvar xxv_CD11 xxv_CD01
 
@@ -581,7 +581,7 @@ program define dmlvent, rclass
 	
 		qui rforest `v_CD0_regressand' att22 ///
 			female black hispan paredu parprof parinc_prank famsize afqt3 ///
-			if `kpart'!=`k', type(reg) iter(200) lsize(10) seed(60637)		
+			if `kpart'!=`k', type(reg) iter(500) lsize(20)	
 
 		tempvar xxv_CD00
 	
