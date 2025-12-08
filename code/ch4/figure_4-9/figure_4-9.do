@@ -2,30 +2,23 @@
 capture clear all
 capture log close
 set more off
-set maxvar 50000, perm
+set maxvar 50000
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-
-net install parallel, from("https://raw.github.com/gvegayon/parallel/stable/") replace 
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
+net install parallel, from("https://raw.github.com/gvegayon/parallel/stable/") replace //module for parallelization
 mata mata mlib index
 
-github install causalMedAnalysis/cmed
-
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/plowUse/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch4\_LOGS\"
 global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch4\" 
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
-	"${datadir}plowUse\"
 
 //open log
 log using "${logdir}figure_4-9.log", replace 
 
 //load data
-use "${datadir}plowUse\plowUse.dta"
+use "${datadir}plowUse.dta"
 
 //keep complete cases
 drop if missing(women_politics, plow, ln_income, agricultural_suitability, ///
@@ -45,14 +38,25 @@ global L authGov //exposure-induced confounder
 global M ln_income //mediator
 global Y women_politics //outcome
 
+//set seed 
+//note: opt parallel requires a separate seed for each child process
+local myseed 3308004
+qui parallel numprocessors
+local ncores = max(floor(r(numprocessors) * 0.75), 1)
+local parseeds 
+forval i = 1/`ncores' {
+    local newseed = `myseed' + `i'
+    local parseeds `parseeds' " `newseed'"
+}
+
 //compute RWR estimates
-qui cmed linear $Y $M ($L) $D = $C, reps(2000) seed(60637)
+qui cmed linear $Y $M ($L) $D = $C, reps(2000) parallel seed(`parseeds') 
 
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
 matrix rwrIE = b_matrix, ci_matrix
 
-qui cmed linear $Y $M ($L) $D = $C, m(7.5) reps(2000) seed(60637)
+qui cmed linear $Y $M ($L) $D = $C, m(7.5) reps(2000) parallel seed(`parseeds') 
 
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
@@ -61,13 +65,15 @@ matrix rwrCDE = b_matrix, ci_matrix
 matrix rwrResults = rwrIE \ rwrCDE
 
 //compute IPW estimates
-cmed ipw $Y ((regress) $M) ((ologit) $L) $D = $C, censor(3 97) reps(2000) seed(60637)
+qui cmed ipw $Y ((regress) $M) ((ologit) $L) $D = $C, censor(3 97) ///
+	reps(2000) parallel seed(`parseeds') 
 
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
 matrix ipwIE = b_matrix, ci_matrix
 
-cmed ipw $Y ((regress) $M) ($L) $D = $C, m(7.5) censor(3 97) reps(2000) seed(60637)
+qui cmed ipw $Y ((regress) $M) ($L) $D = $C, m(7.5) censor(3 97) ///
+	reps(2000) parallel seed(`parseeds') 
 
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
@@ -75,8 +81,8 @@ matrix ipwCDE = b_matrix, ci_matrix
 
 matrix ipwResults = ipwIE \ ipwCDE
 
-//compute simulation estimates w/ custom function for fitting ordinal logit 
-//model for L and logistic binomial model for Y
+//compute simulation estimates w/ custom function for fitting logistic 
+//binomial model for Y
 capture program drop custsim
 program define custsim, rclass
 
@@ -199,11 +205,9 @@ program define custsim, rclass
 
 end
 
-//parallelize the bootstrap to reduce wall time
-parallel initialize 18 //specify number of logical cores for each child process
-
+//parallelize the bootstrap
 parallel bs, expr(OE=r(oe) IDE=r(ide) IIE=r(iie) CDE=r(cde)) ///
-	reps(2000): custsim, nsim(2000)
+	reps(2000) seed(`parseeds'): custsim, nsim(2000)
 
 matrix b_matrix = e(b)'
 matrix ci_matrix = e(ci_percentile)'
@@ -239,7 +243,7 @@ twoway (rcap ul ll estimand, horizontal) ///
        xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
        title("RWR Estimates", size(medium))
 
-graph save "${figdir}\rwr_plot.gph", replace
+graph save "${figdir}rwr_plot.gph", replace
 
 //plot simulation estimates
 clear
@@ -270,7 +274,7 @@ twoway (rcap ul ll estimand, horizontal) ///
        xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
        title("Simulation Estimates", size(medium))
 
-graph save "${figdir}\sim_plot.gph", replace
+graph save "${figdir}sim_plot.gph", replace
 
 //plot ipw estimates
 clear
@@ -301,21 +305,21 @@ twoway (rcap ul ll estimand, horizontal) ///
        xtick(-0.1(0.02)0.06) xlabel(-0.1(0.02)0.06) ///
        title("IPW Estimates", size(medium))
 
-graph save "${figdir}\ipw_plot.gph", replace
+graph save "${figdir}ipw_plot.gph", replace
 
 //combine plots
 graph combine ///
-	"${figdir}\rwr_plot.gph" ///
-	"${figdir}\sim_plot.gph" ///
-	"${figdir}\ipw_plot.gph", ///
+	"${figdir}rwr_plot.gph" ///
+	"${figdir}sim_plot.gph" ///
+	"${figdir}ipw_plot.gph", ///
 	col(3) row(1) ysize(4.5) xsize(10) scheme(s2mono)
 
-graph export "${figdir}\figure_4-9.pdf", replace
+graph export "${figdir}figure_4-9.pdf", replace
 
 //erase temporary figures
-erase "${figdir}\rwr_plot.gph"
-erase "${figdir}\sim_plot.gph"
-erase "${figdir}\ipw_plot.gph"
+erase "${figdir}rwr_plot.gph"
+erase "${figdir}sim_plot.gph"
+erase "${figdir}ipw_plot.gph"
 
 log close
 
@@ -324,6 +328,5 @@ log close
 //differences in how the weights are censored, to Monte Carlo error, or to 
 //differences in random number seeding that influence the bootstrap samples
 
-//note: -cmed sim- with large nsim() and reps() can be time consuming to run in 
-//Stata because it cannot parallelize the bootstrap replications. Consider 
-//switching to R implementation of -medsim- if computation time is a concern.
+//note: -cmed sim- with large nsim() and reps() can be time consuming to run;
+//parallelization of the bootstrap is highly recommended in these instances

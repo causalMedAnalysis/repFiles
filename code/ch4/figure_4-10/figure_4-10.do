@@ -4,23 +4,18 @@ capture log close
 set more off
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/plowUse/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch4\_LOGS\"
 global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch4\" 
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/plowUse/plowUse.dta" ///
-	"${datadir}plowUse\"
 
 //open log
 log using "${logdir}figure_4-10.log", replace 
 
 //load data
-use "${datadir}plowUse\plowUse.dta"
+use "${datadir}plowUse.dta"
 
 //keep complete cases
 drop if missing(women_politics, plow, ln_income, agricultural_suitability, ///
@@ -89,7 +84,7 @@ twoway ///
 		xtitle("{&delta}{subscript:UY|C,D,L,M}") ///
 		ztitle(""))
 
-graph save "${figdir}\ide_plot.gph", replace
+graph save "${figdir}ide_plot.gph", replace
 
 twoway ///
 	(contour oe_adj delta_DUgivC delta_UYgivCDLM, ///
@@ -104,16 +99,16 @@ twoway ///
 		xtitle("{&delta}{subscript:UY|C,D,L,M}") ///
 		ztitle(""))
 
-graph save "${figdir}\oe_plot.gph", replace
+graph save "${figdir}oe_plot.gph", replace
 
 graph combine ///
-	"${figdir}\ide_plot.gph" ///
-	"${figdir}\oe_plot.gph", ///
+	"${figdir}ide_plot.gph" ///
+	"${figdir}oe_plot.gph", ///
 	col(1) row(2) ysize(8) xsize(4.5) scheme(s2mono)
 
-graph export "${figdir}\figure_4-10.pdf", replace
+graph export "${figdir}figure_4-10.pdf", replace
 
-erase "${figdir}\ide_plot.gph"
-erase "${figdir}\oe_plot.gph"
+erase "${figdir}ide_plot.gph"
+erase "${figdir}oe_plot.gph"
 
 log close

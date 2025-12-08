@@ -5,22 +5,17 @@ set more off
 set maxvar 50000
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/NLSY79/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch4\_LOGS\"
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
-	"${datadir}NLSY79\"
 
 //open log
 log using "${logdir}table_4-3.log", replace 
 
 //load data
-use "${datadir}NLSY79\nlsy79BK_ed2.dta"
+use "${datadir}nlsy79BK_ed2.dta"
 
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, log_faminc_adj_age3539, ///
@@ -36,7 +31,7 @@ global L ever_unemp_age3539 //exposure-induced confounder
 global M log_faminc_adj_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
-//set seed to ensure reproducibility
+//set seed
 set seed 3308004
 
 //compute point estimates using simulation w/ DxM interaction
