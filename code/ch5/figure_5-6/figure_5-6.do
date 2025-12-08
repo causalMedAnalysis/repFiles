@@ -4,23 +4,18 @@ capture log close
 set more off
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/Brader_et_al2008/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch5\_LOGS\"
 global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch5\" 
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/Brader_et_al2008/Brader_et_al2008.dta" ///
-	"${datadir}Brader_et_al2008\"
 
 //open log
 log using "${logdir}figure_5-6.log", replace 
 
 //load data
-use "${datadir}Brader_et_al2008\Brader_et_al2008.dta", clear
+use "${datadir}Brader_et_al2008.dta", clear
 
 //keep complete cases
 drop if missing(immigr, emo, p_harm, tone_eth, ppage, ppeducat, ppgender, ppincimp)
@@ -108,6 +103,6 @@ twoway ///
 	(scatteri `UY_colgrad' `DU_colgrad' (9) "college graduate", ///
 		legend(off) mcolor(black) msymbol(circle) mlabcolor(black))
 
-graph export "${figdir}\figure_5-6.pdf", replace
+graph export "${figdir}figure_5-6.pdf", replace
 
 log close
