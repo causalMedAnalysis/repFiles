@@ -4,23 +4,18 @@ capture log close
 set more off
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/JOBSII/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
 global figdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\figures\ch3\" 
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/JOBSII/Jobs-NoMiss-Binary.dta" ///
-	"${datadir}JOBSII\"
 
 //open log
 log using "${logdir}figure_3-10.log", replace 
 
 //load data
-use "${datadir}JOBSII\Jobs-NoMiss-Binary.dta", clear
+use "${datadir}Jobs-NoMiss-Binary.dta", clear
 
 //define macros for different variables
 global C econ_hard sex age nonwhite educ income //baseline confounders
@@ -28,7 +23,7 @@ global D treat //exposure
 global M job_seek //mediator
 global Y work1 //outcome
 
-//set seed to ensure reproducibility
+//set seed 
 set seed 3308004
 
 //compute point estimates based on linear models
@@ -80,7 +75,7 @@ twoway ///
 		xtitle("{&delta}{subscript:UY|C,D,M}") ///
 		ztitle(""))
 
-graph save "${figdir}\nde_plot.gph", replace
+graph save "${figdir}nde_plot.gph", replace
 
 twoway ///
 	(contour nie_adj delta_DUgivCM delta_UYgivCDM, ///
@@ -95,16 +90,16 @@ twoway ///
 		xtitle("{&delta}{subscript:UY|C,D,M}") ///
 		ztitle(""))
 
-graph save "${figdir}\nie_plot.gph", replace
+graph save "${figdir}nie_plot.gph", replace
 
 graph combine ///
-	"${figdir}\nde_plot.gph" ///
-	"${figdir}\nie_plot.gph", ///
+	"${figdir}nde_plot.gph" ///
+	"${figdir}nie_plot.gph", ///
 	col(1) row(2) ysize(8) xsize(4.5) scheme(s2mono)
 
-graph export "${figdir}\figure_3-10.pdf", replace
+graph export "${figdir}figure_3-10.pdf", replace
 
-erase "${figdir}\nde_plot.gph"
-erase "${figdir}\nie_plot.gph"
+erase "${figdir}nde_plot.gph"
+erase "${figdir}nie_plot.gph"
 
 log close

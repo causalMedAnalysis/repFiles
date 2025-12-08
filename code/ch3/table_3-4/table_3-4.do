@@ -4,22 +4,17 @@ capture log close
 set more off
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/NLSY79/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
-	"${datadir}NLSY79\"
 
 //open log
 log using "${logdir}table_3-4.log", replace 
 
 //load data
-use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
+use "${datadir}nlsy79BK_ed2.dta", clear
 
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, female, black, ///

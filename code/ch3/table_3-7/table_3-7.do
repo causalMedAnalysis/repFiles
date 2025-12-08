@@ -5,22 +5,19 @@ set more off
 set maxvar 10000
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
+net install parallel, from("https://raw.github.com/gvegayon/parallel/stable/") replace //module for parallelization
+mata mata mlib index
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/JOBSII/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/JOBSII/Jobs-NoMiss-Binary.dta" ///
-	"${datadir}JOBSII\"
 
 //open log
 log using "${logdir}table_3-7.log", replace 
 
 //load data
-use "${datadir}JOBSII\Jobs-NoMiss-Binary.dta", clear
+use "${datadir}Jobs-NoMiss-Binary.dta", clear
 
 //define macros for different variables
 global C econ_hard sex age nonwhite educ income //baseline confounders
@@ -28,77 +25,35 @@ global D treat //exposure
 global M job_seek //mediator
 global Y work1 //outcome
 
-//set seed to ensure reproducibility
-set seed 3308004
+//set seed 
+//note: opt parallel requires a separate seed for each child process
+local myseed 3308004
+qui parallel numprocessors
+local ncores = max(floor(r(numprocessors) * 0.75), 1)
+local parseeds 
+forval i = 1/`ncores' {
+    local newseed = `myseed' + `i'
+    local parseeds `parseeds' " `newseed'"
+}
 
 //compute point and interval estimates based on linear models
-cmed linear $Y $M $D = $C, reps(2000) seed(60637)
-cmed linear $Y $M $D = $C, m(4) reps(2000) seed(60637)
+cmed linear $Y $M $D = $C, reps(2000) parallel seed(`parseeds')
+cmed linear $Y $M $D = $C, m(4) reps(2000) parallel seed(`parseeds')
 
 //compute point and interval estimates based on simulation/imputation
-cmed sim ((logit) $Y) ((regress) $M) $D = $C, nsim(1000) reps(2000) seed(60637)
-cmed impute ((logit) $Y) $M $D = $C, m(4) reps(2000) seed(60637) 
+cmed sim ((logit) $Y) ((regress) $M) $D = $C, nsim(1000) reps(2000) parallel seed(`parseeds')
+cmed impute ((logit) $Y) $M $D = $C, m(4) reps(2000) parallel seed(`parseeds')
 
 //compute point and interval estimates based on inverse probability weighting
-cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) seed(60637)
-
-//define custom function to estimate CDE using IPW with a continuous mediator
-capture program drop ipwcde_Mcon
-program define ipwcde_Mcon, rclass
-
-	//fit logit model for D given C
-	logit treat econ_hard sex age nonwhite educ income
-	est store DModel
-	
-	//fit normal linear model for M given D and C
-	reg job_seek treat econ_hard sex age nonwhite educ income
-	est store MModel
-
-	//predict exposure probabilities
-	est restore DModel
-	predict phat_d_C, pr
-	gen phat_D_denom=(treat*phat_d_C)+((1-treat)*(1-phat_d_C))
-
-	est restore MModel
-	predict Ehat_M_CD, xb
-	gen phat_M_denom=normalden(job_seek,Ehat_M_CD,e(rmse))
-
-	//compute stabilized weights
-	logit treat
-	predict phat_d, xb
-	gen phat_D_num=(treat*phat_d)+((1-treat)*(1-phat_d))
-	
-	reg job_seek treat
-	predict Ehat_M_D, xb
-	gen phat_M_num=normalden(job_seek,Ehat_M_D,e(rmse))
-	
-	gen _sw4=(phat_M_num*phat_D_num)/(phat_M_denom*phat_D_denom)
-
-	//censor stabilized weights at 1st and 99th percentiles
-	centile _sw4, c(1 99) 
-	replace _sw4=r(c_1) if _sw4<r(c_1) & _sw4!=.
-	replace _sw4=r(c_2) if _sw4>r(c_2) & _sw4!=.
-
-	//fit outcome model
-	reg work1 i.treat##c.job_seek [pw=_sw4]
-
-	//compute effect estimates
-	return scalar cde=_b[1.treat]+_b[1.treat#c.job_seek]*4
-	
-	drop phat* Ehat_* _est_* _sw*
-	
-end
-
-bootstrap CDE=r(cde), reps(2000) seed(60637) noheader notable: ipwcde_Mcon
-estat bootstrap, p noheader
+cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) parallel seed(`parseeds')
+cmed ipw $Y ((regress) $M) $D = $C, m(4) censor(1 99) reps(2000) parallel seed(`parseeds')
 
 log close
 
 //some of the estimates differ slightly from those reported in the text, 
-//which are based on the R implementation. This is variously due to slight 
+//which are based on the R implementation. This is variously due to minor 
 //differences in how the weights are censored, to Monte Carlo error, or to 
 //differences in random number seeding that influence the bootstrap samples
 
-//note: -cmed sim- with large nsim() and reps() can be time consuming to run in 
-//Stata because it cannot parallelize the bootstrap replications. Consider 
-//switching to R implementation of -medsim- if computation time is a concern.
+//note: -cmed sim- with large nsim() and reps() can be time consuming to run;
+//parallelization of the bootstrap is highly recommended in these instances

@@ -4,18 +4,14 @@ capture log close
 set more off
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/NLSY79/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
-	"${datadir}NLSY79\" 
 
 //open log
 log using "${logdir}table_3-1.log", replace 
 
 //load data
-use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
+use "${datadir}nlsy79BK_ed2.dta", clear
 
 //recode maternal education
 recode momedu (0/12=0) (13/20=1), gen(momcol)

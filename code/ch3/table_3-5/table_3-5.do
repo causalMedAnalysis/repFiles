@@ -4,22 +4,17 @@ capture log close
 set more off
 
 //install required modules
-net install github, from("https://haghish.github.io/github/")
-github install causalMedAnalysis/cmed //module to perform causal mediation analysis
+net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
 
 //specify directories 
-global datadir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\data\" 
+global datadir "https://github.com/causalMedAnalysis/repFiles/raw/refs/heads/main/data/NLSY79/" 
 global logdir "C:\Users\Geoffrey Wodtke\Dropbox\D\projects\causal_mediation_text\code\ch3\_LOGS\"
-
-//download data
-capture copy "https://github.com/causalMedAnalysis/repFiles/raw/main/data/NLSY79/nlsy79BK_ed2.dta" ///
-	"${datadir}NLSY79\"
 
 //open log
 log using "${logdir}table_3-5.log", replace 
 
 //load data
-use "${datadir}NLSY79\nlsy79BK_ed2.dta", clear
+use "${datadir}nlsy79BK_ed2.dta", clear
 
 //keep complete cases
 drop if missing(cesd_age40, att22, ever_unemp_age3539, female, black, ///
@@ -34,19 +29,22 @@ global D att22 //exposure
 global M ever_unemp_age3539 //mediator
 global Y std_cesd_age40 //outcome
 
+//set seed 
+set seed 3308004
+
 //compute interval estimates using bootstrap
-qui cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) seed(3308004) ///
-	saving("${datadir}\bootmed.dta", replace)
+qui cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) ///
+	saving("bootmed.dta", replace)
 
 mat list e(ci_percentile)
 
-qui cmed ipw $Y ((logit) $M) $D = $C, m(0) censor(1 99) reps(2000) seed(3308004) ///
-	saving("${datadir}\bootcde.dta", replace)
+qui cmed ipw $Y ((logit) $M) $D = $C, m(0) censor(1 99) reps(2000) ///
+	saving("bootcde.dta", replace)
 
 mat list e(ci_percentile)
 
 //compute p-values for null of no effect
-use "${datadir}\bootmed.dta", clear
+use "bootmed.dta", clear
 
 foreach x in ATE NDE NIE {
 	qui gen `x'_lt=0 
@@ -66,7 +64,7 @@ foreach x in ATE NDE NIE {
 	drop `x'_*
 	}
 
-use "${datadir}\bootcde.dta", clear
+use "bootcde.dta", clear
 
 qui gen CDE_lt=0 
 qui replace CDE_lt=1 if CDE<0
@@ -82,8 +80,8 @@ di "CDE p-value"
 di min(p_rt, p_lt)*2
 
 //erase bootstrap data	
-erase "${datadir}\bootmed.dta"
-erase "${datadir}\bootcde.dta"
+erase "bootmed.dta"
+erase "bootcde.dta"
 
 log close
 
