@@ -48,12 +48,12 @@ use "bootmed.dta", clear
 
 foreach x in ATE NDE NIE {
 	qui gen `x'_lt=0 
-	qui replace `x'_lt=1 if `x'<0
+	qui replace `x'_lt=1 if _b_`x'<0
 	qui sum `x'_lt
 	scalar p_lt = r(mean)
 	
 	qui gen `x'_rt=0 
-	qui replace `x'_rt=1 if `x'>0
+	qui replace `x'_rt=1 if _b_`x'>0
 	qui sum `x'_rt
 	scalar p_rt = r(mean)
 	
@@ -67,12 +67,12 @@ foreach x in ATE NDE NIE {
 use "bootcde.dta", clear
 
 qui gen CDE_lt=0 
-qui replace CDE_lt=1 if CDE<0
+qui replace CDE_lt=1 if _b_CDE<0
 qui sum CDE_lt
 scalar p_lt = r(mean)
 
 qui gen CDE_rt=0 
-qui replace CDE_rt=1 if CDE>0
+qui replace CDE_rt=1 if _b_CDE>0
 qui sum CDE_rt
 scalar p_rt = r(mean)
 
