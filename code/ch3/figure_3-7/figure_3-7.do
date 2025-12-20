@@ -40,11 +40,11 @@ qui cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) ///
 //plot histogram of bootstrap estimates
 use "bootmed.dta", clear
 
-centile NIE, c(2.5 97.5)
+centile _b_NIE, c(2.5 97.5)
 
 set scheme s2mono
 
-hist NIE, ///
+hist _b_NIE, ///
 	width(0.00125) ///
 	yscale(range(0 180)) ///
 	xscale(range(-0.05 0.02)) ///
