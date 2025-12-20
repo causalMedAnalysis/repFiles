@@ -40,12 +40,12 @@ qui cmed ipw $Y $M $D = $C, censor(1 99) reps(2000) ///
 //plot kernel density of bootstrap estimates
 use "bootmed.dta", clear
 
-quietly kdensity NIE, nograph gen(xval dval)
+quietly kdensity _b_NIE, nograph gen(xval dval)
 
 set scheme s2mono
 		
 twoway ///
-	(kdensity NIE, ///
+	(kdensity _b_NIE, ///
 		yscale(range(0 60)) ///
 		xscale(range(-0.05 0.02)) ///
 		ylabel(0(10)60) ///
