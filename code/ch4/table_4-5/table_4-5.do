@@ -99,12 +99,12 @@ foreach method in rwr sim ipw {
 	
 	foreach x in OE IDE IIE CDE {
 		quietly gen `x'_lt=0 
-		quietly replace `x'_lt=1 if `x'<0
+		quietly replace `x'_lt=1 if _b_`x'<0
 		quietly sum `x'_lt
 		scalar p_lt = r(mean)
 	
 		quietly gen `x'_rt=0 
-		quietly replace `x'_rt=1 if `x'>0
+		quietly replace `x'_rt=1 if _b_`x'>0
 		quietly sum `x'_rt
 		scalar p_rt = r(mean)
 	
