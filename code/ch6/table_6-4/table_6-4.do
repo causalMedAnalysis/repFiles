@@ -50,14 +50,14 @@ forval i = 1/`ncores' {
 //we therefore implement DML using the LASSO only
 
 //compute parametric MR (type mr2) estimates of path-specific effects
-qui cmed mr $Y ($M1 $M2) $D = $C, paths censor(1 99) ///
+qui cmed mr $Y ($M2 $M1) $D = $C, paths censor(1 99) ///
 	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute DML (type mr2) estimates of path-specific effects
-cmed dml $Y ($M1 $M2) $D = $C, paths method(lasso) censor(1 99) seed(`myseed')
+cmed dml $Y ($M2 $M1) $D = $C, paths method(lasso) censor(1 99) seed(`myseed')
 
 log close
 

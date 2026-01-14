@@ -24,7 +24,7 @@ use "${datadir}tatar.dta", clear
 //note that -cmed mr- and -cmed dml- do not support using blocks of multiple 
 //mediators in a causal sequence, so we focus on perceptions of threat only as 
 //our focal mediators (i.e., fear_g1, fear_g2, fear_g3); see the R package 
-//cmedR for support using blocks of multiple mediators
+//cmedR for support for using blocks of multiple mediators in sequence
 
 //define macros for different variables
 global C kulak prosoviet_pre religiosity_pre land_pre orchard_pre ///
@@ -50,14 +50,14 @@ forval i = 1/`ncores' {
 //we therefore implement DML using the LASSO only
 
 //compute parametric MR (type mr2) estimates of path-specific effects
-qui cmed mr $Y ($M1 $M2 $M3) $D = $C, paths censor(1 99) ///
+qui cmed mr $Y ($M3 $M2 $M1) $D = $C, paths censor(1 99) ///
 	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute DML (type mr2) estimates of path-specific effects
-cmed dml $Y ($M1 $M2 $M3) $D = $C, paths ///
+cmed dml $Y ($M3 $M2 $M1) $D = $C, paths ///
 	method(lasso) censor(1 99) seed(`myseed')
 	
 log close
