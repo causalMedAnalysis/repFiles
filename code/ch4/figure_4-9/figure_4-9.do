@@ -2,8 +2,7 @@
 capture clear all
 capture log close
 set more off
-set maxvar 50000
-
+	
 //install required modules
 net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
 net install parallel, from("https://raw.github.com/gvegayon/parallel/stable/") replace //module for parallelization
@@ -87,7 +86,7 @@ capture program drop custsim
 program define custsim, rclass
 
 	syntax [, nsim(integer 10)] 
-
+	
 	ologit $L $D $C
 	est store Lmodel
 
@@ -101,6 +100,12 @@ program define custsim, rclass
 	gen L_orig=$L
 	gen M_orig=$M
 
+	gen Y0L0M0_=0
+	gen Y1L1M1_=0
+	gen Y1L1M0_=0
+	gen Y1L1m_=0
+	gen Y0L0m_=0
+	
 	forval i=1/`nsim' {
 		
 		replace $D=0
@@ -163,14 +168,15 @@ program define custsim, rclass
 		predict phat_Y0L0m
 		gen Y0L0m_`i'=rbinomial(100,phat_Y0L0m)/100 
 		
-		drop phat* mhat* M0_* M1_* L0_* L1_*
+		replace Y0L0M0_ = Y0L0M0_ + Y0L0M0_`i'*(1/`nsim')
+		replace Y1L1M1_ = Y1L1M1_ + Y1L1M1_`i'*(1/`nsim')
+		replace Y1L1M0_ = Y1L1M0_ + Y1L1M0_`i'*(1/`nsim')
+		replace Y1L1m_ = Y1L1m_ + Y1L1m_`i'*(1/`nsim')
+		replace Y0L0m_ = Y0L0m_ + Y0L0m_`i'*(1/`nsim')
+		
+		drop Y0L0M0_`i' Y1L1M1_`i' Y1L1M0_`i' Y1L1m_`i' Y0L0m_`i' 
+		drop phat* mhat* M0_`i' M1_`i' L0_`i' L1_`i'
 	}
-
-	egen Y0L0M0_=rowmean(Y0L0M0_*)
-	egen Y1L1M1_=rowmean(Y1L1M1_*)
-	egen Y1L1M0_=rowmean(Y1L1M0_*)
-	egen Y1L1m_=rowmean(Y1L1m_*)
-	egen Y0L0m_=rowmean(Y0L0m_*)
 
 	reg Y0L0M0_
 	local Ehat_Y0L0M0=_b[_cons]
@@ -327,6 +333,3 @@ log close
 //which are based on the R implementation. This is variously due to minor 
 //differences in how the weights are censored, to Monte Carlo error, or to 
 //differences in random number seeding that influence the bootstrap samples
-
-//note: -cmed sim- with large nsim() and reps() can be time consuming to run;
-//parallelization of the bootstrap is highly recommended in these instances
