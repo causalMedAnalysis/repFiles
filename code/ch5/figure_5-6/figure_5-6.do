@@ -42,7 +42,7 @@ global M2 emo //second mediator
 global Y std_immigr //outcome
 
 //compute pure regression imputation estimates w/o interactions
-qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths nointer
+qui cmed impute ((regress) $Y) ($M2 $M1) $D = $C, paths nointer
 	
 scalar PSE_DY=_b[PSE_DY]
 

@@ -25,13 +25,13 @@ drop if missing(immigr, emo, p_harm, tone_eth, ppage, ppeducat, ppgender, ppinci
 egen std_immigr=std(4-immigr)
 
 //dummy code controls
-tab ppeducat, gen(ppeducat_)
+qui tab ppeducat, gen(ppeducat_)
 drop ppeducat_1
 rename ppeducat_2 hs
 rename ppeducat_3 sc
 rename ppeducat_4 ba
 
-tab ppgender, gen(ppgender_)
+qui tab ppgender, gen(ppgender_)
 drop ppgender_1
 rename ppgender_2 female
 
@@ -54,21 +54,21 @@ forval i = 1/`ncores' {
 }
 
 //compute pure regression imputation estimates w/o interactions
-qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths nointer ///
+qui cmed impute ((regress) $Y) ($M2 $M1) $D = $C, paths nointer ///
 	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute pure regression imputation estimates w/ Dx(M1,M2) interactions
-qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths ///
+qui cmed impute ((regress) $Y) ($M2 $M1) $D = $C, paths ///
 	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute pure regression imputation estimates w/ Dx(M1,M2,C) interactions
-qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths cxd ///
+qui cmed impute ((regress) $Y) ($M2 $M1) $D = $C, paths cxd ///
 	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)

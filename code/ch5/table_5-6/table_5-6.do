@@ -44,14 +44,14 @@ forval i = 1/`ncores' {
 }
 
 //compute pure regression imputation estimates
-qui cmed impute ((regress) $Y) ($M1 $M2) $D = $C, paths nointer ///
+qui cmed impute ((regress) $Y) ($M2 $M1) $D = $C, paths nointer ///
 	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute imputation-based weighting estimates
-qui cmed impute ((regress) $Y) ($M1 $M2) ((logit) $D) = $C, paths nointer ///
+qui cmed impute ((regress) $Y) ($M2 $M1) ((logit) $D) = $C, paths nointer ///
 	reps(2000) parallel seed(`parseeds')
 
 mat list e(b)

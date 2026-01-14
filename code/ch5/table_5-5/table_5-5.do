@@ -44,19 +44,19 @@ forval i = 1/`ncores' {
 }
 
 //compute PSE estimates from additive linear models
-qui cmed linear $Y ($M1 $M2) $D = $C, paths nointer reps(2000) parallel seed(`parseeds')
+qui cmed linear $Y ($M2 $M1) $D = $C, paths nointer reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute PSE estimates from linear model estimates w/ Dx(M1,M2) interactions
-qui cmed linear $Y ($M1 $M2) $D = $C, paths reps(2000) parallel seed(`parseeds')
+qui cmed linear $Y ($M2 $M1) $D = $C, paths reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute PSE estimates using inverse probability weighting
-qui cmed ipw $Y ($M1 $M2) $D = $C, paths censor(1 99) reps(2000) parallel seed(`parseeds')
+qui cmed ipw $Y ($M2 $M1) $D = $C, paths censor(1 99) reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)

@@ -44,19 +44,19 @@ forval i = 1/`ncores' {
 }
 
 //compute estimates from additive linear models
-qui cmed linear $Y ($M1 $M2) $D = $C, nointer reps(2000) parallel seed(`parseeds')
+qui cmed linear $Y ($M2 $M1) $D = $C, nointer reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute estimates from linear models with Dx(M1,M2) interactions
-qui cmed linear $Y ($M1 $M2) $D = $C, reps(2000) parallel seed(`parseeds')
+qui cmed linear $Y ($M2 $M1) $D = $C, reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
 
 //compute estimates using inverse probability weighting
-qui cmed ipw $Y ($M1 $M2) $D = $C, censor(1 99) reps(2000) parallel seed(`parseeds')
+qui cmed ipw $Y ($M2 $M1) $D = $C, censor(1 99) reps(2000) parallel seed(`parseeds')
 
 mat list e(b)
 mat list e(ci_percentile)
