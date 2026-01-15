@@ -44,6 +44,8 @@ mat list e(b)
 qui cmed ipw $Y ((regress) $M) ($L) $D = $C, m(10.82) censor(1 99) cxd lxd
 mat list e(b)
 
+log close 
+
 //note that the cmed estimates differ slightly from those reported in
 //the text, which are based on the R implementation. This is due to 
 //minor differences in how the weights are censored.

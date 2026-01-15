@@ -2,7 +2,6 @@
 capture clear all
 capture log close
 set more off
-set maxvar 50000
 
 //install required modules
 net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
@@ -45,7 +44,7 @@ mat list e(b)
 qui cmed sim ((regress) $Y) ((regress) $M) ((logit) $L) $D = $C, nsim(2000) reps(2) cxd cxm lxm 
 mat list e(b)
 
-qui cmed sim ((regress) $Y) $M ((logit) $L) $D = $C, mvalue(10.82) nsim(2000) reps(2) cxd cxm lxm 
+qui cmed sim ((regress) $Y) $M ((logit) $L) $D = $C, mvalue(10.82) nsim(2000) reps(2) cxd cxm lxm detail
 mat list e(b)
 
 log close

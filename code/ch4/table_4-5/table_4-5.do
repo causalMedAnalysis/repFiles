@@ -55,12 +55,12 @@ qui cmed linear $Y $M ($L) $D = $C, m(10.82) cxd cxm lxm ///
 mat list e(ci_percentile)
 
 //compute simulation interval estimates
-qui cmed sim ((regress) $Y) ((regress) $M) ((logit) $L) $D = $C, cxd cxm lxm nsim(1000) ///
+qui cmed sim ((regress) $Y) ((regress) $M) ((logit) $L) $D = $C, cxd cxm lxm nsim(2000) ///
 	reps(2000) parallel seed(`parseeds') saving("bootsim.dta", replace)
 
 mat list e(ci_percentile)
 
-qui cmed sim ((regress) $Y) $M ((logit) $L) $D = $C, mvalue(10.82) cxd cxm lxm nsim(1000) ///
+qui cmed sim ((regress) $Y) $M ((logit) $L) $D = $C, mvalue(10.82) cxd cxm lxm nsim(2000) ///
 	reps(2000) parallel seed(`parseeds') saving("bootsim_cde.dta", replace)
 
 mat list e(ci_percentile)
