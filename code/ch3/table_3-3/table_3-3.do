@@ -2,7 +2,6 @@
 capture clear all
 capture log close
 set more off
-set maxvar 10000
 
 //install required modules
 net install cmed, from("https://raw.github.com/causalMedAnalysis/cmed/master/") replace //module for causal mediation analysis
