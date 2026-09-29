@@ -1,7 +1,10 @@
 # Preliminaries
 chapter <- "ch5"
 title <- "table_5-5"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
@@ -20,9 +23,6 @@ create_dir_if_missing <- function(dir) {
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
 
-# Open log
-sink(log_path, split = TRUE)
-
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
 
@@ -39,9 +39,9 @@ sink(log_path, split = TRUE)
 #              Models and Inverse Probability Weighting with the NLSY.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#----------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES   #
+#----------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
@@ -64,8 +64,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -83,7 +85,7 @@ M <- c(
   "log_faminc_adj_age3539"
 )
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -122,7 +124,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 #  LINEAR MODEL ESTIMATOR: Version 1  #
 #-------------------------------------#
 # Additive linear model
-
 out_lin1 <- linpath(
   data = nlsy,
   D = D,
@@ -139,7 +140,6 @@ out_lin1 <- linpath(
 #  LINEAR MODEL ESTIMATOR: Version 2  #
 #-------------------------------------#
 # Linear model with D x M interaction
-
 out_lin2 <- linpath(
   data = nlsy,
   D = D,
@@ -157,7 +157,6 @@ out_lin2 <- linpath(
 #  IPW ESTIMATOR  #
 #-----------------#
 # Additive logit models
-
 out_ipw <- ipwpath(
   data = nlsy,
   D = D,
@@ -175,7 +174,6 @@ out_ipw <- ipwpath(
 #-------------------#
 master <- data.frame(
   param = c("ATE(1,0)", paste0("PSE_{", names(out_lin1$PSE), "}(1,0)")),
-  
   # linear models: version 1
   lin1_est = c(
     out_lin1$ATE,
@@ -189,7 +187,6 @@ master <- data.frame(
     out_lin1$ci_ATE[2],
     out_lin1$ci_PSE[,2]
   ),
-  
   # linear models: version 2
   lin2_est = c(
     out_lin2$ATE,
@@ -203,7 +200,6 @@ master <- data.frame(
     out_lin2$ci_ATE[2],
     out_lin2$ci_PSE[,2]
   ),
-  
   # IPW
   ipw_est = c(
     out_ipw$ATE,
@@ -219,6 +215,9 @@ master <- data.frame(
   )
 )
 rownames(master) <- NULL
+
+# Open log
+sink(log_path, split = TRUE)
 
 width_curr <- getOption("width")
 options(width = 500)

@@ -1,10 +1,12 @@
 # Preliminaries
 chapter <- "ch5"
 title <- "table_5-2"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
 # Ensure all necessary directories exist under your root folder
 # If not, the function below will create folders for you
@@ -20,10 +22,6 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
-create_dir_if_missing(dir_fig)
-
-# Open log
-sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
@@ -41,9 +39,9 @@ sink(log_path, split = TRUE)
 #              the Multiple-Mediators-as-a-Whole Approach with the NLSY.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#----------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES   #
+#----------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
@@ -66,8 +64,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -85,7 +85,7 @@ M <- c(
   "log_faminc_adj_age3539"
 )
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -124,7 +124,6 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 #  LINEAR MODEL ESTIMATOR: Version 1  #
 #-------------------------------------#
 # Additive linear model
-
 out_lin1 <- linmed(
   data = nlsy,
   D = D,
@@ -141,7 +140,6 @@ out_lin1 <- linmed(
 #  LINEAR MODEL ESTIMATOR: Version 2  #
 #-------------------------------------#
 # Linear model with D x M interaction
-
 out_lin2 <- linmed(
   data = nlsy,
   D = D,
@@ -162,11 +160,11 @@ out_lin2 <- linmed(
 
 # D model 1 formula: f(D|C)
 predictors1_D <- paste(C, collapse = " + ")
-formula1_D_string <- paste(D, "~", predictors1_D)
+formula1_D <- as.formula(paste(D, "~", predictors1_D))
 
 # D model 2 formula: s(D|C,M)
 predictors2_D <- paste(c(M,C), collapse = " + ")
-formula2_D_string <- paste(D, "~", predictors2_D)
+formula2_D <- as.formula(paste(D, "~", predictors2_D))
 
 # Estimate effects
 out_ipw <- ipwmed(
@@ -174,8 +172,8 @@ out_ipw <- ipwmed(
   D = D,
   M = M,
   Y = Y,
-  formula1_string = formula1_D_string,
-  formula2_string = formula2_D_string,
+  D_C_model = formula1_D,
+  D_CM_model = formula2_D,
   boot = TRUE,
   boot_reps = n_reps,
   boot_seed = 3308004,
@@ -239,6 +237,9 @@ master <- data.frame(
     out_ipw$ci_NIE[2]
   )
 )
+
+# Open log
+sink(log_path, split = TRUE)
 
 width_curr <- getOption("width")
 options(width = 500)

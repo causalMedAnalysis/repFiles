@@ -1,10 +1,13 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-1"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
+
 dir.create(dir_log, recursive = TRUE, showWarnings = FALSE)
 
 # Ensure all necessary directories exist under your root folder
@@ -40,9 +43,9 @@ create_dir_if_missing(dir_log)
 #              NIE, which are reported in the text following Table 3-1.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#---------------------------------------------------------#
+#  INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS     #
+#---------------------------------------------------------#
 packages <-
   c(
     "margins",
@@ -63,8 +66,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -106,13 +111,12 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
 
-#-------------------------------#
-#  CASE COUNTS & OUTCOME MEANS  #
-#-------------------------------#
-
 # Open log
 sink(log_path, split = TRUE)
 
+#-------------------------------#
+#  CASE COUNTS & OUTCOME MEANS  #
+#-------------------------------#
 nlsy |>
   # duplicate the dataframe to create a sub-total across the mediator
   mutate(

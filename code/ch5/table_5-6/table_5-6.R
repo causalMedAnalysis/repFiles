@@ -4,7 +4,8 @@ chapter <- "ch5"
 title <- "table_5-6"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -41,12 +42,13 @@ create_dir_if_missing(dir_log)
 #              Imputation with NLSY.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#--------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
+#--------------------------------------------------#
 packages <-
   c(
-    "tidyverse", 
+    "tidyverse",
+    "haven",
     "paths",
     "devtools"
   )
@@ -63,14 +65,15 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
 #------------------#
-
 # outcome
 Y <- "std_cesd_age40"
 
@@ -112,7 +115,6 @@ boot_seed <- 02138
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
-
 nlsy_raw <- read_stata(
   file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
 )
@@ -170,7 +172,8 @@ glm_paths <-
     Y_models = glm_ymodels,
     D_model = glm_ps,
     data = df,
-    boot_reps = 2000,
+    boot = TRUE,
+    boot_reps = n_reps,
     boot_seed = boot_seed,
     round_decimal = 3,
     out_ipw = TRUE

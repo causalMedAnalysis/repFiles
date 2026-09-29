@@ -4,7 +4,8 @@ chapter <- "ch6"
 title <- "table_6-1"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -37,9 +38,11 @@ create_dir_if_missing(dir_log)
 #              of College Attendance on Depression (CES-D scores) from the NLSY.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#---------------------------------------------------#
+#  INSTALL DEPENDENCIES AND LOAD RERUIRED PACKAGES  #
+#---------------------------------------------------#
+
+# The following packages are required to replicate results:
 packages <-
   c(
     "survey", 
@@ -69,8 +72,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#

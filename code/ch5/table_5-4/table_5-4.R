@@ -1,7 +1,10 @@
 # Preliminaries
 chapter <- "ch5"
 title <- "table_5-4"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
@@ -19,9 +22,6 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
-
-# Open log
-sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
@@ -77,7 +77,7 @@ M <- c(
   "incgt50k"
 )
 
-# baseline confounders
+# baseline confounder(s)
 C <- "momcol"
 
 # key variables
@@ -102,6 +102,9 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
     incgt50k = as.numeric(faminc_adj_age3539>=50000),
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
+
+# Open log
+sink(log_path, split = TRUE)
 
 #-------------------------------#
 #  CASE COUNTS & OUTCOME MEANS  #

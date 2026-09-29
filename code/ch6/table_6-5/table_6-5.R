@@ -4,7 +4,8 @@ chapter <- "ch6"
 title   <- "table_6-5"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log  <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -14,7 +15,6 @@ log_path <- paste0(dir_log,  "/", title, "_log.txt")
 create_dir_if_missing <- function(dir) {
   if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 }
-
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
 
@@ -34,10 +34,9 @@ create_dir_if_missing(dir_log)
 #               Mediated by Political Identities
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
-
+#-------------------------------------------------------#
+#    INSTALL DEPENDENCIES AND LOAD REQUIRED PACKAGES    #
+#-------------------------------------------------------#
 packages <- c(
   "tidyverse", 
   "rlang", 
@@ -64,13 +63,16 @@ install_and_load <- function(pkgs) {
 }
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #----------------------#
 #    SPECIFICATIONS    #
 #----------------------#
+# variable names
 
 # exposure
 a <- "violence"
@@ -102,7 +104,6 @@ set.seed(02138)
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
-
 tatar<-
   as.data.frame(
     readRDS(
@@ -116,7 +117,6 @@ n <- nrow(df)
 #-------------------------------------------------#
 #   FORMULAS FOR TREATMENT AND OUTCOME MODELS     #
 #-------------------------------------------------#
-
 a0_form <- as.formula(paste(a, " ~ ", paste(x, collapse= "+")))
 a1_form <- as.formula(paste(a, " ~ ", paste(c(x, m1), collapse= "+")))
 a2_form <- as.formula(paste(a, " ~ ", paste(c(x, m1, m2), collapse= "+")))
@@ -172,7 +172,6 @@ trimQ <- function(x, low = 0.01, high = 0.99) {
 #--------------------------#
 #      Treatment Model     #
 #--------------------------#
-
 p0_glm <- glm(a0_form, family = binomial("logit"), data = df)
 p1_glm <- glm(a1_form, family = binomial("logit"), data = df)
 p2_glm <- glm(a2_form, family = binomial("logit"), data = df)
@@ -223,7 +222,6 @@ df <- df %>% mutate(
 #-----------------------#
 #     Outcome Model     #
 #-----------------------#
-
 mu3_glm <- glm(y3_form, family = binomial("logit"), data = df)
 
 df$mu3_fit_a4n <- predict(mu3_glm, type = "response", newdata = df_mu3n)
@@ -334,9 +332,13 @@ for (s in 1:S){
       wt3_deno = a4 * p3_fit + (1 - a4) * (1 - p3_fit),
       
       !!sym(paste0("w0_", a1, a2, a3, a4)) := as.double(violence==a1) / wt0_deno,
+      
       !!sym(paste0("w1_", a1, a2, a3, a4)) := as.double(violence==a2) * wt1_nume/wt1_deno/wt0_deno,
+      
       !!sym(paste0("w2_", a1, a2, a3, a4)) := as.double(violence==a3) * wt2_nume/wt2_deno * wt1_nume/wt1_deno/wt0_deno,
+      
       !!sym(paste0("w3_", a1, a2, a3, a4)) := as.double(violence==a4) * wt3_nume/wt3_deno * wt2_nume/wt2_deno * wt1_nume/wt1_deno/wt0_deno
+      
     )
   
   df[df$violence == a1, paste0("w0_", a1, a2, a3, a4)] <- trimQ(df[df$violence == a1, paste0("w0_", a1, a2, a3, a4)])
@@ -411,7 +413,7 @@ boots <- matrix(NA, nrow = B, ncol = 5)
 
 for (b in 1:B){
   
-  if (b %% 100 == 0){
+  if (b %% 10 ==0){
     cat("bootstrap sample ", b, "\n")
   }
   
@@ -446,7 +448,6 @@ for (b in 1:B){
   #--------------------------#
   #      Treatment Model     #
   #--------------------------#
-  
   dfi <- dfi %>% mutate(
     p0_fit = p0_glm$fitted.values,
     p1_fit = p1_glm$fitted.values,
@@ -492,7 +493,6 @@ for (b in 1:B){
   #-----------------------#
   #     Outcome Model     #
   #-----------------------#
-  
   mu3_glm <- glm(y3_form, family = binomial("logit"), data = dfi)
   
   dfi$mu3_fit_a4n <- predict(mu3_glm, type = "response", newdata = dfi_mu3n)
@@ -603,9 +603,13 @@ for (b in 1:B){
         wt3_deno = a4 * p3_fit + (1 - a4) * (1 - p3_fit),
         
         !!sym(paste0("w0_", a1, a2, a3, a4)) := as.double(violence==a1) / wt0_deno,
+        
         !!sym(paste0("w1_", a1, a2, a3, a4)) := as.double(violence==a2) * wt1_nume/wt1_deno/wt0_deno,
+        
         !!sym(paste0("w2_", a1, a2, a3, a4)) := as.double(violence==a3) * wt2_nume/wt2_deno * wt1_nume/wt1_deno/wt0_deno,
+        
         !!sym(paste0("w3_", a1, a2, a3, a4)) := as.double(violence==a4) * wt3_nume/wt3_deno * wt2_nume/wt2_deno * wt1_nume/wt1_deno/wt0_deno
+        
       )
     
     dfi[dfi$violence == a1, paste0("w0_", a1, a2, a3, a4)] <- trimQ(dfi[dfi$violence == a1, paste0("w0_", a1, a2, a3, a4)])
@@ -671,6 +675,7 @@ for (b in 1:B){
                                             expression(paste("via G1 Identity (", psi[`1111`]-psi[`0111`], ")")))))) 
   
   boots[b, ] <- out_dfi$est
+  
 }
 
 out_df <- out_df %>% 
@@ -697,9 +702,7 @@ print(table6_5par)
 #----------------------------#
 #  DML cross-fitting setup   #
 #----------------------------#
-
 K <- 5
-
 # create cross-fitting split
 cf_fold <- createFolds(df[[y]], K)
 
@@ -710,7 +713,6 @@ k <- 1
 for(k in 1:K){
   
   cat(" cross-fitting fold ", k, "\n")
-
   #design matrices for the different model
   
   # auxiliary and main data
@@ -740,7 +742,6 @@ for(k in 1:K){
   #--------------------------#
   #      Treatment Model     #
   #--------------------------#
-  
   p0_sl <- SuperLearner(
     Y          = aux$violence,
     X          = aux_p0,
@@ -872,6 +873,7 @@ for(k in 1:K){
     Y          = df$mu2_fit_a4n_a3n[-cf_fold[[k]]],
     X          = aux_mu1,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -881,6 +883,7 @@ for(k in 1:K){
     Y          = df$mu2_fit_a4n_a3y[-cf_fold[[k]]],
     X          = aux_mu1,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -890,6 +893,7 @@ for(k in 1:K){
     Y          = df$mu2_fit_a4y_a3n[-cf_fold[[k]]],
     X          = aux_mu1,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -899,6 +903,7 @@ for(k in 1:K){
     Y          = df$mu2_fit_a4y_a3y[-cf_fold[[k]]],
     X          = aux_mu1,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -920,6 +925,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4n_a3n_a2n[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -929,6 +935,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4n_a3n_a2y[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -938,6 +945,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4n_a3y_a2n[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -947,6 +955,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4n_a3y_a2y[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -956,6 +965,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4y_a3n_a2n[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -965,6 +975,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4y_a3n_a2y[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -974,6 +985,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4y_a3y_a2n[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -983,6 +995,7 @@ for(k in 1:K){
     Y          = df$mu1_fit_a4y_a3y_a2y[-cf_fold[[k]]],
     X          = aux_mu0,
     family     = gaussian(),
+    # obsWeights = aux$weight,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger"),
     control    = list(saveFitLibrary = TRUE),
     cvControl  = list(V = 5L, shuffle = TRUE, validRows = NULL)
@@ -1036,9 +1049,13 @@ for (s in 1:S){
       wt3_deno = a4 * p3_fit + (1 - a4) * (1 - p3_fit),
       
       !!sym(paste0("w0_", a1, a2, a3, a4)) := as.double(violence==a1) / wt0_deno,
+      
       !!sym(paste0("w1_", a1, a2, a3, a4)) := as.double(violence==a2) * wt1_nume/wt1_deno/wt0_deno,
+      
       !!sym(paste0("w2_", a1, a2, a3, a4)) := as.double(violence==a3) * wt2_nume/wt2_deno * wt1_nume/wt1_deno/wt0_deno,
+      
       !!sym(paste0("w3_", a1, a2, a3, a4)) := as.double(violence==a4) * wt3_nume/wt3_deno * wt2_nume/wt2_deno * wt1_nume/wt1_deno/wt0_deno
+      
     )
   
   main_df[main_df$violence == a1, paste0("w0_", a1, a2, a3, a4)] <- trimQ(main_df[main_df$violence == a1, paste0("w0_", a1, a2, a3, a4)])
@@ -1114,7 +1131,7 @@ print(table6_5np)
 #-------------------------------#
 #        COMBINE RESULTS        #
 #-------------------------------#
-
+#map text to the table labels
 .norm65 <- function(s) {
   s <- as.character(s)
   dplyr::case_when(

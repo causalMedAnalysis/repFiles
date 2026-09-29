@@ -1,7 +1,10 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "figure_4-10"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 dir_fig <- paste0(dir_root, "/figures/", chapter)
@@ -20,6 +23,7 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
+create_dir_if_missing(dir_fig)
 
 # Open log
 sink(log_path, split = TRUE)
@@ -40,9 +44,9 @@ sink(log_path, split = TRUE)
 #              Due to Unobserved Exposure-Outcome Confounding.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#--------------------------------------------------------#
+#   INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS   #
+#--------------------------------------------------------#
 packages <-
   c(
     "tidyverse",
@@ -64,7 +68,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
+
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -82,7 +89,7 @@ M <- "ln_income"
 # exposure-induced confounder
 L <- "authGovCat"
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "agricultural_suitability",
   "tropical_climate",
@@ -130,8 +137,8 @@ plow <- na.omit(plow_raw[,key_vars]) |>
 
 # L and M model formulae
 predictors_LM <- paste(c(D,C), collapse = " + ")
-(formula_L_string <- paste(L, "~", predictors_LM))
-(formula_M_string <- paste(M, "~", predictors_LM))
+formula_L_string <- paste(L, "~", predictors_LM)
+formula_M_string <- paste(M, "~", predictors_LM)
 formula_L <- as.formula(formula_L_string)
 formula_M <- as.formula(formula_M_string)
 
@@ -145,7 +152,7 @@ predictors_Y <- paste(
   paste(D, M, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula_Y_string <- paste(Y, "~", predictors_Y))
+formula_Y_string <- paste(Y, "~", predictors_Y)
 formula_Y <- as.formula(formula_Y_string)
 
 #--------------------#

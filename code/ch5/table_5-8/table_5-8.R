@@ -4,7 +4,8 @@ chapter <- "ch5"
 title <- "table_5-8"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -41,9 +42,10 @@ create_dir_if_missing(dir_log)
 #              Linear Models and Inverse Probability Weighting.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#---------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES  #
+#---------------------------------------------------#
+
 packages <-
   c(
     "tidyverse", 
@@ -68,14 +70,15 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
 #------------------#
-
 # outcome
 Y <- "immigr"
 
@@ -118,7 +121,6 @@ boot_seed <- 3308004
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
-
 # Load the data
 temp_file <- tempfile() # define a placeholder to store the data
 

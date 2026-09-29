@@ -4,7 +4,8 @@ chapter <- "ch6"
 title   <- "table_6-4"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log  <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -33,10 +34,9 @@ create_dir_if_missing(dir_log)
 #               as Mediated by Unemployment and Household Income, from the NLSY
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
-
+#-------------------------------------------------------#
+#    INSTALL DEPENDENCIES AND LOAD REQUIRED PACKAGES    #
+#-------------------------------------------------------#
 packages <- c(
   "tidyverse", 
   "rlang", 
@@ -64,14 +64,15 @@ install_and_load <- function(pkgs) {
 }
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #----------------------#
 #    SPECIFICATIONS    #
 #----------------------#
-
 # exposure
 a <- "att22"
 
@@ -98,7 +99,6 @@ set.seed(02138)
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
-
 nlsy_raw <- as.data.frame(
   read_stata("https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta")
 )
@@ -112,7 +112,6 @@ n <- nrow(df)
 #-------------------------------------------------#
 #   FORMULAS FOR TREATMENT AND OUTCOME MODELS     #
 #-------------------------------------------------#
-
 a0_form <- as.formula(paste(a, " ~ ", paste(x, collapse= "+")))
 a1_form <- as.formula(paste(a, " ~ ", paste(c(x, m1), collapse= "+")))
 a2_form <- as.formula(paste(a, " ~ ", paste(c(x, m1, m2), collapse= "+")))
@@ -124,7 +123,6 @@ y2_form <- as.formula(paste(y, " ~ ", paste(c(x, a, m1, m2), collapse= "+")))
 #-----------------------------#
 #       MAIN ANALYSES         #
 #-----------------------------#
-
 estimands <- expand.grid(c(0, 1), c(0, 1), c(0, 1)) %>%
   `colnames<-`(c("a1", "a2", "a3"))
 
@@ -320,7 +318,7 @@ boots <- matrix(NA, nrow = B, ncol = 4)
 
 for (b in 1:B){
   
-  if (b %% 100 ==0){
+  if (b %% 10 ==0){
     cat("bootstrap sample ", b, "\n")
   }
   
@@ -591,7 +589,6 @@ for(k in 1:K){
   #--------------------------#
   #      Treatment Model     #
   #--------------------------#
-  
   p0_sl <- SuperLearner(
     Y          = aux$att22,
     X          = aux_p0,
@@ -850,7 +847,6 @@ table6_4np <-  out_df %>%
 #-------------------------------#
 #        COMBINE RESULTS        #
 #-------------------------------#
-
 # map strings
 .label64 <- function(s) {
   s <- as.character(s)

@@ -4,7 +4,8 @@ chapter <- "ch6"
 title   <- "table_6-3"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log  <- file.path(dir_root, "code", chapter, "_LOGS")
@@ -12,7 +13,6 @@ log_path <- file.path(dir_log,  paste0(title, "_log.txt"))
 
 # Ensure all necessary directories exist under your root folder
 # If not, the following function will create folders for you.
-
 create_dir_if_missing <- function(dir) {
   if (!dir.exists(dir)) {
     dir.create(dir, recursive = TRUE)
@@ -21,7 +21,6 @@ create_dir_if_missing <- function(dir) {
     message("Directory already exists: ", dir)
   }
 }
-
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
 
@@ -41,9 +40,9 @@ create_dir_if_missing(dir_log)
 #               Mediated by Household Income, from the NLSY
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#-------------------------------------------------------#
+#    INSTALL DEPENDENCIES AND LOAD REQUIRED PACKAGES    #
+#-------------------------------------------------------#
 
 packages <- c(
   "tidyverse", 
@@ -74,14 +73,15 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #----------------------#
 #    SPECIFICATIONS    #
 #----------------------#
-
 # outcome
 y <- "std_cesd_age40"
 
@@ -91,7 +91,7 @@ a <- "att22"
 # exposure-induced confounder
 z <- "ever_unemp_age3539"
 
-# mediator 
+# mediator (log income)
 m <- "log_faminc_adj_age3539"
 
 # baseline confounders
@@ -111,7 +111,7 @@ set.seed(02138)
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
-
+#select complete cases for y, a, z, m, and C and standardize Y to ease comparison across models
 nlsy_raw <- as.data.frame(
   read_stata("https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta")
 )
@@ -147,10 +147,10 @@ r_form <- as.formula(paste(z, " ~ ", paste(c(x, a, m), collapse= "+")))
 # u(x, a, z) = E[b(X,A,Z,M)c(X,A,Z,M)|x, a, z]
 u_form <- as.formula(paste(y, " ~ ", paste(c(x, a, z), collapse= "+")))
 
+
 #------------------------#
 #     MAIN ANALYSES      #
 #------------------------#
-
 estimands <- expand.grid(c(0, 1), c(0, 1)) %>%
   `colnames<-`(c("a1", "a2"))
 
@@ -374,7 +374,7 @@ boots <- matrix(NA_real_, nrow = B, ncol = 3)
 
 for (b in 1:B) {
   
-  if (b %% 100 == 0) cat(" bootstrap sample ", b, "\n")
+  if (b %% 10 == 0) cat(" bootstrap sample ", b, "\n")
   dfi <- nlsy %>% sample_frac(replace = TRUE)
   
   #design matrices for the different model
@@ -843,7 +843,6 @@ for (s in 1:S) {
       v_fit
   )
 }
-
 out_df_dml <- main_df %>%
   mutate(eif_type1_ate = eif_11 - eif_00,
          eif_type2_ate = eif_11 - eif_00,
@@ -871,7 +870,6 @@ table6_3np <- out_df_dml %>%
 #-------------------------------#
 #        COMBINE RESULTS        #
 #-------------------------------#
-
 par_tbl <- table6_3par %>%
   dplyr::filter(type == "type1") %>%
   dplyr::transmute(Estimand, `Parametric MR` = out)

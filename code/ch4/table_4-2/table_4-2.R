@@ -1,10 +1,12 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "table_4-2"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
 # Ensure all necessary directories exist under your root folder
 # if not, the function will create folders for you
@@ -37,9 +39,9 @@ create_dir_if_missing(dir_log)
 #              Using Regression-with-Residuals.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#--------------------------------------------------------#
+#   INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS   #
+#--------------------------------------------------------#
 packages <-
   c(
     "tidyverse",
@@ -59,8 +61,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -79,7 +83,7 @@ ln_M <- "log_faminc_adj_age3539"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -123,8 +127,8 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 
 # L and M model formulae
 predictors1_LM <- paste(c(D,C), collapse = " + ")
-(formula1_L_string <- paste(L, "~", predictors1_LM))
-(formula1_M_string <- paste(M, "~", predictors1_LM))
+formula1_L_string <- paste(L, "~", predictors1_LM)
+formula1_M_string <- paste(M, "~", predictors1_LM)
 formula1_L <- as.formula(formula1_L_string)
 formula1_M <- as.formula(formula1_M_string)
 
@@ -158,7 +162,7 @@ out1 <- rwrlite(
 # RWR with ln(M) and D x ln(M) interaction
 
 # L and M model formula
-(formula2_M_string <- paste(ln_M, "~", predictors1_LM))
+formula2_M_string <- paste(ln_M, "~", predictors1_LM)
 formula2_L <- formula1_L
 formula2_M <- as.formula(formula2_M_string)
 
@@ -204,8 +208,8 @@ predictors3_LM <- paste(
   paste(D, C, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula3_L_string <- paste(L, "~", predictors3_LM))
-(formula3_M_string <- paste(ln_M, "~", predictors3_LM))
+formula3_L_string <- paste(L, "~", predictors3_LM)
+formula3_M_string <- paste(ln_M, "~", predictors3_LM)
 formula3_L <- as.formula(formula3_L_string)
 formula3_M <- as.formula(formula3_M_string)
 
@@ -237,7 +241,7 @@ predictors3_Y <- paste(
   paste(ln_M, L, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula3_Y_string <- paste(Y, "~", predictors3_Y))
+formula3_Y_string <- paste(Y, "~", predictors3_Y)
 formula3_Y <- as.formula(formula3_Y_string)
 
 # Estimate effects

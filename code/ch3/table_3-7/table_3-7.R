@@ -1,7 +1,10 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-7"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
@@ -35,9 +38,9 @@ create_dir_if_missing(dir_log)
 #              Effects of Job Training on Employment as Estimated from JOBSII Study.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#---------------------------------------------------------#
+#  INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS     #
+#---------------------------------------------------------#
 packages <-
   c(
     "tidyverse",
@@ -60,8 +63,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -76,7 +81,7 @@ D <- "treat"
 # mediator
 M <- "job_seek"
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "econ_hard",
   "sex",
@@ -109,7 +114,6 @@ jobs <- jobs_raw |>
 #  LINEAR MODEL ESTIMATOR  #
 #--------------------------#
 # Linear model with D x M interaction
-
 out_lin <- linmed(
   data = jobs,
   D = D,
@@ -174,8 +178,7 @@ out_sim <- medsim(
 )
 
 # Estimate CDE(1,0,4) by regression imputation estimator
-mod_Y <- glm(
-  work1 ~ treat*job_seek + econ_hard + sex + age + nonwhite + educ + income,
+mod_Y <- glm(work1 ~ treat*job_seek + econ_hard + sex + age + nonwhite + educ + income,
   family = binomial(link = "logit"),
   data = jobs
 )
@@ -214,8 +217,8 @@ out_ipw <- ipwmed(
   D = D,
   M = M,
   Y = Y,
-  formula1_string = formula1_D_string,
-  formula2_string = formula2_D_string,
+  D_C_model = as.formula(formula1_D_string),
+  D_CM_model = as.formula(formula2_D_string),
   boot = TRUE,
   boot_reps = n_reps,
   boot_seed = 3308004,

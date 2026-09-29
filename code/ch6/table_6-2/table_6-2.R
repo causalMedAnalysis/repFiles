@@ -4,7 +4,8 @@ chapter <- "ch6"
 title <- "table_6-2"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -41,9 +42,11 @@ create_dir_if_missing(dir_log)
 #                     on CES-D scores, as Mediated by Unemployment, from the NLSY
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#---------------------------------------------------#
+#  INSTALL DEPENDENCIES AND LOAD RERUIRED PACKAGES
+#---------------------------------------------------#
+
+# The following packages are required for replicate results:
 packages <-
   c(
     "survey", 
@@ -73,8 +76,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -148,10 +153,10 @@ df <- nlsy_raw[complete.cases(nlsy_raw[, c(D, "cesd_age40", unlist(M), C)]),] %>
 D_C_model <- paste(D, " ~ ", paste(C, collapse= "+"))
 
 # Mediator ~ Treatment + Baseline Confounders
-M_DC_model <- paste(M[[1]], " ~ ", paste(c(C,D), collapse= "+"))
+M_CD_model <- paste(M[[1]], " ~ ", paste(c(C,D), collapse= "+"))
 
 # Outcome ~  Treatment + Baseline Confounders + Mediators
-Y_DMC_model <- paste(Y, " ~ ", paste(c(C,D,M[[1]]), collapse= "+"))
+Y_CDM_model <- paste(Y, " ~ ", paste(c(C,D,M[[1]]), collapse= "+"))
 
 #--------------------------------------------------#
 # Column 1: Parametric MR Estimation               #
@@ -164,13 +169,11 @@ mrmed1_rst <-
     M = M[[1]],
     C = C,
     D_C_model = D_C_model,
-    Y_DMC_model = Y_DMC_model,
-    M_DC_model = M_DC_model,
+    M_CD_model = M_CD_model,    
+    Y_CDM_model = Y_CDM_model,
     data = df,
-    d = 1,
-    dstar = 0,
     boot = TRUE,
-    boot_reps = 2000,
+    boot_reps = n_reps,
     boot_seed = seed
   )
 
@@ -185,11 +188,9 @@ dmlmed1_rst <-
     M = M[[1]],
     C = C,
     D_C_model = D_C_model,
-    Y_DMC_model = Y_DMC_model,
-    M_DC_model = M_DC_model,
+    M_CD_model = M_CD_model,
+    Y_CDM_model = Y_CDM_model,
     data = df,
-    d = 1,
-    dstar = 0,
     seed = seed,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger")
   )
@@ -206,13 +207,13 @@ dmlmed1_rst <-
 D_C_model <- as.formula(paste(D, " ~ ", paste(C, collapse= "+")))
 
 # Exposure ~ Baseline Confounders and Mediator
-D_MC_model <- as.formula(paste(D, " ~ ", paste(c(C, M[[1]]), collapse= "+")))
+D_CM_model <- as.formula(paste(D, " ~ ", paste(c(C, M[[1]]), collapse= "+")))
 
 # Outcome ~ Baseline Confounders and Exposure
-Y_DC_model <- as.formula(paste(Y, " ~ ", paste(c(C, D), collapse= "+")))
+Y_CD_model <- as.formula(paste(Y, " ~ ", paste(c(C, D), collapse= "+")))
 
 #Outcome ~ Baseline Confounders, Exposure and Mediator
-Y_DMC_model <- as.formula(paste(Y, " ~ ", paste(c(C, D, M[[1]]), collapse= "+")))
+Y_CDM_model <- as.formula(paste(Y, " ~ ", paste(c(C, D, M[[1]]), collapse= "+")))
 
 #--------------------------------------------------#
 # Column 3 : Parametric MR Estimation              #
@@ -225,14 +226,12 @@ mrmed2_rst <-
     M = M[[1]],
     C = C,
     D_C_model = D_C_model,
-    D_MC_model = D_MC_model,
-    Y_DC_model = Y_DC_model,
-    Y_DMC_model = Y_DMC_model,
+    D_CM_model = D_CM_model,
+    Y_CD_model = Y_CD_model,
+    Y_CDM_model = Y_CDM_model,
     data = df,
-    d = 1,
-    dstar = 0,
     boot = TRUE,
-    boot_reps = 2000,
+    boot_reps = n_reps,
     boot_seed = seed
   )
 
@@ -247,12 +246,10 @@ dmlmed2_rst <-
     M = M[[1]],
     C = C,
     D_C_model = D_C_model,
-    D_MC_model = D_MC_model,
-    Y_DC_model = Y_DC_model,
-    Y_DMC_model = Y_DMC_model,
+    D_CM_model = D_CM_model,
+    Y_CD_model = Y_CD_model,
+    Y_CDM_model = Y_CDM_model,
     data = df,
-    d = 1,
-    dstar = 0,
     seed = seed,
     SL.library = c("SL.mean", "SL.glmnet", "SL.ranger")
   )

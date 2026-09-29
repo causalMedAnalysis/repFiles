@@ -1,11 +1,12 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "table_4-1"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
-dir.create(dir_log, recursive = TRUE, showWarnings = FALSE)
 
 # Ensure all necessary directories exist under your root folder
 # if not, the function will create folders for you
@@ -21,9 +22,6 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
-
-# Open log
-sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
@@ -79,14 +77,14 @@ M <- "incgt50k"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounder
+# baseline confounder(s)
 C <- "momcol"
 
 # key variables
 key_vars <- c(
   "cesd_age40", # unstandardized version of Y
   D,
-  "faminc_adj_age3539", # source variable for M
+  "faminc_adj_age3539", # source variable for C
   L,
   "momedu" # source variable for C
 )
@@ -107,6 +105,9 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
     incgt50k = as.numeric(faminc_adj_age3539>=50000),
     std_cesd_age40 = (cesd_age40 - mean(cesd_age40)) / sd(cesd_age40)
   )
+
+# Open log
+sink(log_path, split = TRUE)
 
 #-------------------------------#
 #  CASE COUNTS & OUTCOME MEANS  #

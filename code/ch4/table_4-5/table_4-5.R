@@ -1,10 +1,12 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "table_4-5"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
 # Ensure all necessary directories exist under your root folder
 # if not, the function will create folders for you
@@ -37,9 +39,9 @@ create_dir_if_missing(dir_log)
 #              Scores Computed from the NLSY.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#--------------------------------------------------------#
+#   INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS   #
+#--------------------------------------------------------#
 packages <-
   c(
     "tidyverse",
@@ -62,8 +64,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -81,7 +85,7 @@ M <- "log_faminc_adj_age3539"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -135,7 +139,7 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 
 # D model formula
 predictors_D <- paste(C, collapse = " + ")
-(formula_D_string <- paste(D, "~", predictors_D))
+formula_D_string <- paste(D, "~", predictors_D)
 formula_D <- as.formula(formula_D_string)
 
 # L and M model formulae
@@ -148,8 +152,8 @@ predictors_LM <- paste(
   paste(D, C, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula_L_string <- paste(L, "~", predictors_LM))
-(formula_M_string <- paste(M, "~", predictors_LM))
+formula_L_string <- paste(L, "~", predictors_LM)
+formula_M_string <- paste(M, "~", predictors_LM)
 formula_L <- as.formula(formula_L_string)
 formula_M <- as.formula(formula_M_string)
 
@@ -169,7 +173,7 @@ predictors2_M <- paste(
   paste(D, L, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula2_M_string <- paste(M, "~", predictors2_M))
+formula2_M_string <- paste(M, "~", predictors2_M)
 formula2_M <- as.formula(formula2_M_string)
 
 # Y model formula
@@ -200,7 +204,7 @@ predictors_Y <- paste(
   paste(M, L, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula_Y_string <- paste(Y, "~", predictors_Y))
+formula_Y_string <- paste(Y, "~", predictors_Y)
 formula_Y <- as.formula(formula_Y_string)
 
 #-----------------#
@@ -732,6 +736,7 @@ out_ipw <- custom_ipwvent(
 #-------------------#
 master <- data.frame(
   param = c("OE(1,0)", "IDE(1,0)", "IIE(1,0)", "CDE(1,0,ln(50K))"),
+
   # RWR
   rwr_pvalue = c(
     out_rwr$pvalue_OE,
@@ -751,6 +756,7 @@ master <- data.frame(
     out_rwr$ci_IIE[2],
     out_rwr$ci_CDE[2]
   ),
+
   # simulation
   sim_pvalue = c(
     out_sim$results[3,2],
@@ -770,6 +776,7 @@ master <- data.frame(
     out_sim$results[2,4],
     out_sim_cde$results[1,4]
   ),
+
   # IPW
   ipw_pvalue = c(
     out_ipw$pvalue_OE,

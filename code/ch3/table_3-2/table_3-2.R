@@ -1,10 +1,12 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-2"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
 # Ensure all necessary directories exist under your root folder
 # if not, the function will create folders for you
@@ -20,9 +22,6 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
-
-# Open log
-sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
@@ -40,9 +39,9 @@ sink(log_path, split = TRUE)
 #              Linear Models Fit to the NLSY.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#---------------------------------------------------------#
+#  INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS     #
+#---------------------------------------------------------#
 packages <-
   c(
     "tidyverse",
@@ -62,8 +61,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -78,7 +79,7 @@ D <- "att22"
 # mediator
 M <- "ever_unemp_age3539"
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -179,6 +180,9 @@ master <- data.frame(
     out3$CDE
   )
 )
+
+# Open log
+sink(log_path, split = TRUE)
 
 master |>
   mutate(

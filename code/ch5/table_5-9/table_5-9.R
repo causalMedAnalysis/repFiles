@@ -4,7 +4,8 @@ chapter <- "ch5"
 title <- "table_5-9"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -42,8 +43,8 @@ create_dir_if_missing(dir_log)
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES
+#------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
@@ -63,14 +64,15 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
 #------------------#
-
 # outcome
 Y <- "immigr"
 
@@ -113,7 +115,6 @@ boot_seed <- 02138
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
-
 # Load the data
 temp_file <- tempfile() # define a placeholder to store the data
 
@@ -188,7 +189,8 @@ Paths_NoInteraction <-
     Y_models = glm_ymodels,
     D_model = NULL,
     data = Brader,
-    boot_reps = 2000,
+    boot = TRUE,
+    boot_reps = nboot,
     boot_seed = boot_seed,
     out_ipw = FALSE
   )$summary_df
@@ -231,8 +233,9 @@ Paths_DMInteraction <-
     Y_models = glm_ymodels,
     D_model = NULL,
     data = Brader,
-    boot_reps = 2000,
-    round_decimal = 3,
+    boot = TRUE,
+    boot_reps = nboot,
+    #round_decimal = 3,
     boot_seed = boot_seed,
     out_ipw = FALSE
   )$summary_df
@@ -281,7 +284,8 @@ Paths_DMCInteraction <-
     Y_models = glm_ymodels,
     D_model = NULL,
     data = Brader,
-    boot_reps = 2000,
+    boot = TRUE,
+    boot_reps = nboot,
     boot_seed = boot_seed,
     out_ipw = FALSE
   )$summary_df

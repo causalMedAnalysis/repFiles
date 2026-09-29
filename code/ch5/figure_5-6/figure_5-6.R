@@ -4,7 +4,8 @@ chapter <- "ch5"
 title <- "figure_5-6"
 
 # Specify the root directory:
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text" 
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
@@ -27,6 +28,7 @@ create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
 create_dir_if_missing(dir_fig)
 
+# Open log
 sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
@@ -45,9 +47,9 @@ sink(log_path, split = TRUE)
 #              Direct Effect of Issue Framing on Support for Immigration
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#----------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES   #
+#----------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
@@ -68,14 +70,15 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
 #  SPECIFICATIONS  #
 #------------------#
-
 # outcome
 Y <- "immigr"
 
@@ -120,7 +123,6 @@ boot_seed <- 02138
 #-----------------------------#
 #        PREPARE DATA         #
 #-----------------------------#
-
 # Load the data
 temp_file <- tempfile() # define a placeholder to store the data
 
@@ -199,7 +201,8 @@ Paths_Model <-
     Y_models = glm_ymodels,
     D_model = NULL,
     data = Brader,
-    boot_reps = 2000,
+    boot = TRUE,
+    boot_reps = nboot,
     boot_seed = boot_seed,
     out_ipw = FALSE
   )
@@ -265,4 +268,5 @@ plot(
 
 ggsave(paste0(dir_fig,"/figure_5-6.png"), width = 10, height = 7)
 
+# Close log
 sink()

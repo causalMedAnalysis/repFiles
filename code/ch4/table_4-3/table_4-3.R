@@ -1,7 +1,10 @@
 # Preliminaries
 chapter <- "ch4"
 title <- "table_4-3"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
 
@@ -36,9 +39,9 @@ create_dir_if_missing(dir_log)
 #              Using the Simulation Approach.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#--------------------------------------------------------#
+#   INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS   #
+#--------------------------------------------------------#
 packages <-
   c(
     "tidyverse",
@@ -61,8 +64,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -80,7 +85,7 @@ M <- "log_faminc_adj_age3539"
 # exposure-induced confounder
 L <- "ever_unemp_age3539"
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -128,8 +133,8 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 
 # L and M model formulae
 predictors1_LM <- paste(c(D,C), collapse = " + ")
-(formula1_L_string <- paste(L, "~", predictors1_LM))
-(formula1_M_string <- paste(M, "~", predictors1_LM))
+formula1_L_string <- paste(L, "~", predictors1_LM)
+formula1_M_string <- paste(M, "~", predictors1_LM)
 
 # Y model formula
 ## main effects
@@ -141,7 +146,7 @@ predictors1_Y <- paste(
   paste(D, M, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula1_Y_string <- paste(Y, "~", predictors1_Y))
+formula1_Y_string <- paste(Y, "~", predictors1_Y)
 
 # Define model specifications
 out1_specs <- list(
@@ -200,8 +205,8 @@ predictors2_LM <- paste(
   paste(D, C, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula2_L_string <- paste(L, "~", predictors2_LM))
-(formula2_M_string <- paste(M, "~", predictors2_LM))
+formula2_L_string <- paste(L, "~", predictors2_LM)
+formula2_M_string <- paste(M, "~", predictors2_LM)
 
 # Y model formula
 ## main effects
@@ -231,7 +236,7 @@ predictors2_Y <- paste(
   paste(M, L, sep = ":", collapse = " + ")
 )
 ## full formula
-(formula2_Y_string <- paste(Y, "~", predictors2_Y))
+formula2_Y_string <- paste(Y, "~", predictors2_Y)
 
 # Define model specifications
 out2_specs <- list(

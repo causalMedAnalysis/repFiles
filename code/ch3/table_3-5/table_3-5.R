@@ -1,10 +1,12 @@
 # Preliminaries
 chapter <- "ch3"
 title <- "table_3-5"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
 # Ensure all necessary directories exist under your root folder
 # if not, the function will create folders for you
@@ -38,9 +40,9 @@ create_dir_if_missing(dir_log)
 #              Weighting and the Nonparametric Bootstrap.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#---------------------------------------------------------#
+#  INSTALL DEPENDENCIES AND LOAD CAUSAL MED FUNCTIONS     #
+#---------------------------------------------------------#
 packages <-
   c(
     "tidyverse",
@@ -63,8 +65,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -79,7 +83,7 @@ D <- "att22"
 # mediator
 M <- "ever_unemp_age3539"
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -124,18 +128,15 @@ nlsy <- nlsy_raw[complete.cases(nlsy_raw[,key_vars]),] |>
 
 # D model 1 formula: f(D|C)
 predictors1_D <- paste(C, collapse = " + ")
-formula1_D_string <- paste(D, "~", predictors1_D)
-formula1_D_string
+formula1_D <- as.formula(paste(D, "~", predictors1_D))
 
 # D model 2 formula: s(D|C,M)
 predictors2_D <- paste(c(M,C), collapse = " + ")
-formula2_D_string <- paste(D, "~", predictors2_D)
-formula2_D_string
+formula2_D <- as.formula(paste(D, "~", predictors2_D))
 
 # M model formula: g(M|C,D)
 predictors_M <- paste(c(D,C), collapse = " + ")
-formula_M_string <- paste(M, "~", predictors_M)
-formula_M_string
+formula_M <- as.formula(paste(M, "~", predictors_M))
 
 # Estimate ATE(1,0), NDE(1,0), NIE(1,0)
 out1 <- ipwmed(
@@ -143,8 +144,8 @@ out1 <- ipwmed(
   D = D,
   M = M,
   Y = Y,
-  formula1_string = formula1_D_string,
-  formula2_string = formula2_D_string,
+  D_C_model = formula1_D,
+  D_CM_model = formula2_D,
   boot = TRUE,
   boot_reps = n_reps,
   boot_seed = 3308004,
@@ -158,8 +159,8 @@ out1_cde <- ipwcde(
   M = M,
   Y = Y,
   m = m,
-  formula_D_string = formula1_D_string,
-  formula_M_string = formula_M_string,
+  D_C_model = formula1_D,
+  M_CD_model = formula_M,
   boot = TRUE,
   boot_reps = n_reps,
   boot_seed = 3308004,

@@ -1,10 +1,12 @@
 # Preliminaries
 chapter <- "ch5"
 title <- "table_5-1"
-dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+
+#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
+dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
-dir_fig <- paste0(dir_root, "/figures/", chapter)
 
 # Ensure all necessary directories exist under your root folder
 # If not, the function below will create folders for you
@@ -20,10 +22,6 @@ create_dir_if_missing <- function(dir) {
 
 create_dir_if_missing(dir_root)
 create_dir_if_missing(dir_log)
-create_dir_if_missing(dir_fig)
-
-# Open log
-sink(log_path, split = TRUE)
 
 #-------------------------------------------------------------------------------
 # Causal Mediation Analysis Replication Files
@@ -41,9 +39,9 @@ sink(log_path, split = TRUE)
 #              the One-Mediator-at-a-Time Approach Applied to the NLSY.
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------#
-#  INSTALL/LOAD DEPENDENCIES AND CMED R PACKAGE   #
-#-------------------------------------------------#
+#----------------------------------------------------#
+#  INSTALL DEPENDENCIES and LOAD RERUIRED PACKAGES   #
+#----------------------------------------------------#
 packages <-
   c(
     "tidyverse", 
@@ -66,8 +64,10 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-install_github("causalMedAnalysis/cmedR")
+#install_github("causalMedAnalysis/causalMedR-Dev")
+#library(causalMedR)
 
+install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
@@ -85,7 +85,7 @@ M <- c(
   "log_faminc_adj_age3539"
 )
 
-# baseline confounders
+# baseline confounder(s)
 C <- c(
   "female",
   "black",
@@ -115,7 +115,7 @@ nlsy_raw <- read_stata(
   file = "https://raw.githubusercontent.com/causalMedAnalysis/repFiles/refs/heads/main/data/NLSY79/nlsy79BK_ed2.dta"
 )
 
-# create two samples for the analysis data, taking complete cases of the 
+# create two samples for the analysis data, taking complete cases for the 
 # relevant variables for each analysis
 nlsy_m1 <- nlsy_raw[complete.cases(nlsy_raw[,c(key_vars,M[1])]),] |>
   mutate(
@@ -131,7 +131,6 @@ nlsy_m2 <- nlsy_raw[complete.cases(nlsy_raw[,c(key_vars,M[2])]),] |>
 #  MEDIATOR 1, VERSION 1  #
 #-------------------------#
 # Additive linear model
-
 out_m1v1 <- linmed(
   data = nlsy_m1,
   D = D,
@@ -148,7 +147,6 @@ out_m1v1 <- linmed(
 #  MEDIATOR 1, VERSION 2  #
 #-------------------------#
 # Linear model with D x M interaction
-
 out_m1v2 <- linmed(
   data = nlsy_m1,
   D = D,
@@ -166,7 +164,6 @@ out_m1v2 <- linmed(
 #  MEDIATOR 2, VERSION 1  #
 #-------------------------#
 # Additive linear model
-
 out_m2v1 <- linmed(
   data = nlsy_m2,
   D = D,
@@ -183,7 +180,6 @@ out_m2v1 <- linmed(
 #  MEDIATOR 2, VERSION 2  #
 #-------------------------#
 # Linear model with D x M interaction
-
 out_m2v2 <- linmed(
   data = nlsy_m2,
   D = D,
@@ -203,7 +199,6 @@ out_m2v2 <- linmed(
 master <- data.frame(
   mediator = c("M1 (Unemployment)", "", "", "M2 (Household Income)", "", ""),
   param = c("ATE(1,0)", "NDE(1,0)", "NIE(1,0)"),
-  
   # version 1: additive linear model
   v1_est = c(
     ## mediator 1
@@ -235,7 +230,6 @@ master <- data.frame(
     out_m2v1$ci_NDE[2],
     out_m2v1$ci_NIE[2]
   ),
-  
   # version 2: linear model with D x M interaction
   v2_est = c(
     ## mediator 1
@@ -268,6 +262,9 @@ master <- data.frame(
     out_m2v2$ci_NIE[2]
   )
 )
+
+# Open log
+sink(log_path, split = TRUE)
 
 master |>
   mutate(
