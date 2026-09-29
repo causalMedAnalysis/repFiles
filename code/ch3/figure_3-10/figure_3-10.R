@@ -68,10 +68,8 @@ install_and_load <- function(pkg_list) {
 
 install_and_load(packages)
 
-#install_github("causalMedAnalysis/causalMedR-Dev")
-#library(causalMedR)
+install_github("causalMedAnalysis/cmedR")
 
-install.packages("C:/Users/Geoffrey Wodtke/Desktop/cmedR_0.1.0.tar.gz", repos = NULL, type = "source")
 library(cmedR)
 
 #------------------#
