@@ -4,8 +4,7 @@ chapter <- "ch6"
 title   <- "table_6-4"
 
 # Specify the root directory:
-#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
-dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text/code/repFiles-Dev"
 
 # Define subdirectories for logs and figures:
 dir_log  <- paste0(dir_root, "/code/", chapter, "/_LOGS")

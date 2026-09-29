@@ -2,8 +2,7 @@
 chapter <- "ch3"
 title <- "table_3-4"
 
-#dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text"
-dir_root <- "C:/Users/Geoffrey Wodtke/Desktop/repFiles-Dev"
+dir_root <- "C:/Users/Geoffrey Wodtke/Dropbox/D/projects/causal_mediation_text/code/repFiles-Dev"
 
 dir_log <- paste0(dir_root, "/code/", chapter, "/_LOGS")
 log_path <- paste0(dir_log, "/", title, "_log.txt")
